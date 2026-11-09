@@ -1,0 +1,1510 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Earshot</title>
+<meta name="description" content="Record conversations, transcribe them, and get summaries, to-dos, reminders and sentiment, organized by event.">
+<meta name="theme-color" content="#EEF0EC" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#10181B" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Earshot">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+:root{
+  --bg:#EEF0EC; --surface:#FBFCFA; --surface-2:#E3E8E2; --ink:#1D2A30; --ink-2:#56646B; --line:#D2D9D2;
+  --rec:#E0412F; --rec-ink:#fff;
+  --pos:#2B7F78; --neu:#A9801F; --neg:#A23B5E; --mixed:#6A5BA8;
+  --focus:#2B7F78; --shadow:0 1px 0 rgba(29,42,48,.06), 0 8px 24px -12px rgba(29,42,48,.18);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#10181B; --surface:#172227; --surface-2:#1F2D33; --ink:#E5EBE7; --ink-2:#9AA9AE; --line:#2A3940;
+    --rec:#FF5A45; --pos:#4FB3A9; --neu:#D9A93F; --neg:#DE6F93; --mixed:#A193E6; --focus:#4FB3A9;
+    --shadow:0 1px 0 rgba(0,0,0,.3), 0 10px 28px -14px rgba(0,0,0,.7);
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased;padding-bottom:calc(128px + env(safe-area-inset-bottom));-webkit-tap-highlight-color:transparent}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.wrap{max-width:720px;margin:0 auto;padding:0 16px}
+.hidden{display:none!important}
+.muted{color:var(--ink-2)}
+.small{font-size:13px}
+.num{font-variant-numeric:tabular-nums}
+
+/* Top bar */
+.top{position:sticky;top:0;z-index:20;background:var(--bg);padding-top:env(safe-area-inset-top)}
+@supports (backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px)){
+  .top{background:color-mix(in srgb,var(--bg) 85%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+}
+.topbar{display:flex;align-items:center;gap:6px;min-height:56px}
+.topbar .grow{flex:1;min-width:0}
+.brand{font-size:30px;font-weight:800;letter-spacing:-.035em;line-height:1}
+.brand i{font-style:normal;color:var(--rec)}
+.crumb{font-weight:600;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iconbtn{width:44px;height:44px;border-radius:50%;border:0;background:transparent;color:var(--ink);display:grid;place-items:center;flex:none}
+.iconbtn:active{background:var(--surface-2)}
+.iconbtn svg{width:22px;height:22px}
+
+/* Headings */
+h1.page{font-size:28px;line-height:1.15;letter-spacing:-.02em;margin:8px 0 4px;font-weight:750;word-break:break-word}
+h2.sec{font-size:15px;font-weight:650;margin:26px 0 8px;color:var(--ink)}
+.meta{color:var(--ink-2);font-size:14px;display:flex;flex-wrap:wrap;gap:4px 14px}
+
+/* Segmented tabs */
+.tabs{display:flex;gap:4px;background:var(--surface-2);padding:4px;border-radius:12px;margin:18px 0 6px}
+.tabs button{flex:1;border:0;background:transparent;padding:8px 6px;border-radius:9px;font-size:14px;font-weight:600;color:var(--ink-2)}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.tabs .badge{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:9px;background:var(--rec);color:#fff;font-size:11px;line-height:18px}
+
+/* Lists */
+.list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.row{display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:10px;padding:12px 14px;text-decoration:none;color:inherit}
+.row:active{background:var(--surface-2)}
+.row .t{font-weight:620;display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.row .t span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .m{color:var(--ink-2);font-size:13px;margin-top:3px;display:flex;flex-wrap:wrap;gap:2px 12px}
+.row.s-positive{border-left-color:var(--pos)} .row.s-negative{border-left-color:var(--neg)}
+.row.s-neutral{border-left-color:var(--neu)} .row.s-mixed{border-left-color:var(--mixed)}
+
+/* Pills */
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;background:var(--surface-2);color:var(--ink-2);white-space:nowrap}
+.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.pill.s-positive{color:var(--pos)} .pill.s-negative{color:var(--neg)} .pill.s-neutral{color:var(--neu)} .pill.s-mixed{color:var(--mixed)}
+.pill.plain::before{display:none}
+.pill.busy{color:var(--ink)}
+.pill.busy::before{animation:blink 1s infinite}
+.pill.err{color:var(--rec)}
+@keyframes blink{50%{opacity:.2}}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:13px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface)}
+
+/* Panels */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-top:10px}
+.panel p{margin:0 0 8px}
+.panel p:last-child{margin-bottom:0}
+ul.pts{margin:0;padding-left:20px}
+ul.pts li{margin:4px 0}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 14px;font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:6px}
+.btn:active{background:var(--surface-2)}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.danger{color:var(--rec)}
+.btn[disabled]{opacity:.5}
+.btn svg{width:16px;height:16px}
+.banner{background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:12px 14px;margin-top:12px;font-size:14px;color:var(--ink-2)}
+.banner b{color:var(--ink)}
+.errbox{border:1px solid color-mix(in srgb,var(--rec) 45%,var(--line));background:color-mix(in srgb,var(--rec) 7%,var(--surface));color:var(--ink);border-radius:12px;padding:10px 14px;margin-top:10px;font-size:14px}
+.empty{text-align:center;padding:44px 16px;color:var(--ink-2)}
+.empty b{display:block;color:var(--ink);font-size:18px;margin-bottom:6px}
+
+/* Tasks */
+.task{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
+.task:first-child{border-top:0}
+.task input[type=checkbox]{width:22px;height:22px;margin:1px 0 0;accent-color:var(--pos);flex:none}
+.task .body{flex:1;min-width:0}
+.task.done .txt{text-decoration:line-through;color:var(--ink-2)}
+.task .sub{font-size:13px;color:var(--ink-2);display:flex;flex-wrap:wrap;gap:2px 12px;margin-top:2px}
+.prio-high{color:var(--rec);font-weight:600}
+.rem{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
+.rem:first-child{border-top:0}
+.rem .when{flex:none;width:62px;text-align:center;border-radius:8px;background:var(--surface-2);padding:4px 2px;font-size:12px;line-height:1.25}
+.rem .when b{display:block;font-size:17px}
+.rem.past{opacity:.55}
+.rem .body{flex:1;min-width:0}
+.linkbtn{border:0;background:none;padding:0;color:var(--pos);font-weight:600;font-size:13px}
+.src{font-size:12px;color:var(--ink-2);text-decoration:none}
+
+/* Sentiment */
+.gauge{position:relative;height:10px;border-radius:5px;margin:14px 0 6px;background:linear-gradient(90deg,var(--neg),var(--neu) 50%,var(--pos))}
+.gauge .mark{position:absolute;top:-5px;width:4px;height:20px;border-radius:2px;background:var(--ink);transform:translateX(-50%);box-shadow:0 0 0 2px var(--surface)}
+.gauge-l{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-2)}
+.big-sent{display:flex;align-items:baseline;gap:10px}
+.big-sent .score{font-size:40px;font-weight:750;letter-spacing:-.03em;line-height:1}
+.bars{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+.bar{display:grid;grid-template-columns:96px 1fr 38px;gap:10px;align-items:center;font-size:13px}
+.bar .tr{height:8px;border-radius:4px;background:var(--surface-2);overflow:hidden}
+.bar .fl{height:100%;border-radius:4px;background:var(--ink-2)}
+.tl{display:flex;flex-direction:column;gap:6px}
+.tl-row{display:grid;grid-template-columns:1fr 120px;gap:12px;align-items:center;font-size:13px}
+.tl-track{position:relative;height:10px;background:var(--surface-2);border-radius:5px}
+.tl-track::after{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--line)}
+.tl-fill{position:absolute;top:0;bottom:0;border-radius:5px}
+.spark{width:100%;height:64px;display:block}
+
+/* Transcript */
+.seg{display:grid;grid-template-columns:52px 1fr;gap:10px;padding:6px 0}
+.seg button{border:0;background:none;padding:0;color:var(--pos);font-variant-numeric:tabular-nums;font-size:13px;text-align:left;align-self:start;margin-top:2px}
+textarea.tx{width:100%;min-height:50vh;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:12px;line-height:1.55;resize:vertical}
+audio{width:100%;margin-top:14px}
+
+/* Record dock */
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:15;display:flex;justify-content:center;padding:12px 16px calc(14px + env(safe-area-inset-bottom));pointer-events:none;background:linear-gradient(to top,var(--bg) 55%,transparent)}
+.recbtn{pointer-events:auto;display:inline-flex;align-items:center;gap:10px;border:0;border-radius:999px;background:var(--rec);color:var(--rec-ink);font-weight:700;font-size:16px;padding:14px 26px 14px 18px;box-shadow:0 10px 26px -10px color-mix(in srgb,var(--rec) 80%,transparent)}
+.recbtn .dot{width:22px;height:22px;border-radius:50%;border:3px solid #fff;display:grid;place-items:center}
+.recbtn .dot::after{content:"";width:8px;height:8px;border-radius:50%;background:#fff}
+.recbtn:active{transform:scale(.97)}
+
+/* Overlays */
+.overlay{position:fixed;inset:0;z-index:40;background:var(--bg);overflow:auto;-webkit-overflow-scrolling:touch;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+.sheet-head{display:flex;align-items:center;gap:6px;min-height:56px}
+.sheet-head .grow{flex:1;font-weight:650;font-size:17px}
+.field{display:block;margin:14px 0}
+.field > span{display:block;font-size:13px;font-weight:600;color:var(--ink-2);margin-bottom:5px}
+.field input[type=text],.field input[type=password],.field input[type=url],.field select,.field textarea{width:100%;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:11px 12px;font-size:16px}
+.field small{display:block;color:var(--ink-2);font-size:12.5px;margin-top:5px;line-height:1.4}
+.check{display:flex;gap:10px;align-items:flex-start;margin:14px 0;font-size:15px}
+.check input{width:22px;height:22px;margin:0;accent-color:var(--pos);flex:none}
+fieldset{border:1px solid var(--line);border-radius:14px;padding:4px 16px 8px;margin:18px 0;background:var(--surface)}
+legend{font-weight:700;padding:0 6px;font-size:15px}
+
+/* Recorder */
+.recorder{display:flex;flex-direction:column;min-height:calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom))}
+.stage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 0 4px}
+.timer{font-size:64px;font-weight:300;letter-spacing:-.04em;font-variant-numeric:tabular-nums;line-height:1}
+.rec-state{margin-top:8px;font-size:14px;color:var(--ink-2);display:flex;align-items:center;gap:8px;min-height:20px}
+.rec-state .live{width:9px;height:9px;border-radius:50%;background:var(--rec);animation:blink 1.2s infinite}
+.ring{position:relative;width:260px;height:260px;max-width:72vw;max-height:72vw;margin:18px auto 8px}
+.ring canvas{position:absolute;inset:0;width:100%;height:100%}
+.ring .core{position:absolute;inset:0;margin:auto;width:96px;height:96px;border-radius:50%;border:0;background:var(--rec);color:#fff;display:grid;place-items:center;box-shadow:0 12px 30px -10px color-mix(in srgb,var(--rec) 85%,transparent)}
+.ring .core .sq{width:30px;height:30px;border-radius:6px;background:#fff}
+.ring .core .ci{width:34px;height:34px;border-radius:50%;background:#fff}
+.ring .core:active{transform:scale(.96)}
+.live-tx{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;min-height:96px;max-height:30vh;overflow:auto;font-size:15px;line-height:1.5}
+.live-tx .interim{color:var(--ink-2)}
+.rec-controls{display:flex;gap:10px;justify-content:center;padding:14px 0 18px}
+.rec-controls .btn{min-width:120px;justify-content:center;padding:12px 16px}
+
+/* Toast */
+.toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:60;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;font-weight:600;max-width:calc(100vw - 32px);box-shadow:var(--shadow)}
+
+@media (prefers-reduced-motion: reduce){ *{animation:none!important;transition:none!important} }
+@media (min-width:720px){ .timer{font-size:76px} }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="dock" class="dock hidden"><button class="recbtn" data-action="open-recorder"><span class="dot"></span><span id="dock-label">Record</span></button></div>
+<div id="overlay" class="overlay hidden" role="dialog" aria-modal="true"></div>
+<div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+<input type="file" id="file-audio" accept="audio/*,video/mp4,.m4a,.mp3,.wav,.webm,.ogg,.aac" class="hidden">
+<input type="file" id="file-backup" accept="application/json,.json" class="hidden">
+
+<script>
+'use strict';
+/* ============================================================
+   Earshot: record, transcribe and analyze conversations, by event.
+   Everything is stored on this device (IndexedDB). API keys stay in
+   this browser's localStorage and are only sent to the provider you pick.
+   ============================================================ */
+
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
+const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
+const arr = v => Array.isArray(v) ? v : [];
+const str = v => (typeof v === 'string' ? v : v == null ? '' : String(v)).trim();
+
+const ICON = {
+  gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
+  back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
+  close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>',
+  more: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  upload: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg>',
+  spark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>',
+  share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M8 7l4-4 4 4M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>',
+};
+
+/* ---------------- Storage ---------------- */
+const DB = (() => {
+  let dbp;
+  function open() {
+    if (dbp) return dbp;
+    dbp = new Promise((res, rej) => {
+      const r = indexedDB.open('earshot', 1);
+      r.onupgradeneeded = () => {
+        const d = r.result;
+        if (!d.objectStoreNames.contains('events')) d.createObjectStore('events', { keyPath: 'id' });
+        if (!d.objectStoreNames.contains('recordings')) d.createObjectStore('recordings', { keyPath: 'id' }).createIndex('eventId', 'eventId');
+        if (!d.objectStoreNames.contains('audio')) d.createObjectStore('audio');
+      };
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+    return dbp;
+  }
+  async function tx(store, mode, fn) {
+    const d = await open();
+    return new Promise((res, rej) => {
+      const t = d.transaction(store, mode);
+      const req = fn(t.objectStore(store));
+      let out;
+      if (req) req.onsuccess = () => { out = req.result; };
+      t.oncomplete = () => res(out);
+      t.onerror = () => rej(t.error);
+      t.onabort = () => rej(t.error || new Error('Storage transaction aborted'));
+    });
+  }
+  return {
+    get: (s, k) => tx(s, 'readonly', st => st.get(k)),
+    all: s => tx(s, 'readonly', st => st.getAll()),
+    put: (s, v, k) => tx(s, 'readwrite', st => (k === undefined ? st.put(v) : st.put(v, k))),
+    del: (s, k) => tx(s, 'readwrite', st => st.delete(k)),
+    byEvent: id => tx('recordings', 'readonly', st => st.index('eventId').getAll(id)),
+    clear: s => tx(s, 'readwrite', st => st.clear()),
+  };
+})();
+
+/* ---------------- Settings ---------------- */
+const DEFAULTS = {
+  transcriber: 'live',            // 'live' (built-in speech recognition) | 'api' (Whisper-style API after recording)
+  liveCaptions: true,             // show live captions while recording
+  language: navigator.language || 'en-US',
+  aiProvider: 'local',            // 'local' | 'anthropic' | 'openai'
+  autoAnalyze: true,
+  anthropicKey: '', anthropicModel: 'claude-sonnet-5-5',
+  openaiKey: '', openaiBase: 'https://api.openai.com/v1', transcribeModel: 'whisper-1', chatModel: 'gpt-4o-mini',
+  outLang: '',                    // blank = same language as the transcript
+};
+function settings() {
+  try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem('earshot.settings') || '{}') }; } catch { return { ...DEFAULTS }; }
+}
+function saveSettings(s) { try { localStorage.setItem('earshot.settings', JSON.stringify(s)); } catch {} }
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+/* ---------------- Formatting ---------------- */
+function fmtDur(sec) {
+  sec = Math.max(0, Math.round(sec || 0));
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  return h ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
+}
+function fmtDate(ts, withTime = true) {
+  const d = new Date(ts);
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', ...(sameYear ? {} : { year: 'numeric' }) }) +
+    (withTime ? ', ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : '');
+}
+function fmtScore(n) { if (typeof n !== 'number' || isNaN(n)) return ''; return (n > 0 ? '+' : '') + n.toFixed(2); }
+function sentLabel(score) { if (score == null) return null; return score > 0.15 ? 'positive' : score < -0.15 ? 'negative' : 'neutral'; }
+function pad(n) { return String(n).padStart(2, '0'); }
+function localISO(d, withTime) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` + (withTime ? `T${pad(d.getHours())}:${pad(d.getMinutes())}` : ''); }
+function parseLocal(s) {
+  s = str(s); if (!s) return null;
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/);
+  if (!m) { const d = new Date(s); return isNaN(d) ? null : { date: d, hasTime: /\d:\d/.test(s) }; }
+  const d = new Date(+m[1], +m[2] - 1, +m[3], m[4] ? +m[4] : 9, m[5] ? +m[5] : 0);
+  return isNaN(d) ? null : { date: d, hasTime: !!m[4] };
+}
+function sentPill(s) {
+  if (!s || typeof s.score !== 'number') return '';
+  const label = s.label || sentLabel(s.score);
+  return `<span class="pill s-${esc(label)}">${esc(label)} ${fmtScore(s.score)}</span>`;
+}
+function statusPill(r) {
+  const map = { recording: 'Saving', transcribing: 'Transcribing', analyzing: 'Analyzing' };
+  if (map[r.status]) return `<span class="pill busy">${map[r.status]}…</span>`;
+  if (r.status === 'error') return `<span class="pill err">Needs attention</span>`;
+  if (!str(r.transcript)) return `<span class="pill plain">No transcript</span>`;
+  if (!r.analysis) return `<span class="pill plain">Not analyzed</span>`;
+  return sentPill(r.analysis.sentiment);
+}
+
+/* ---------------- Toast ---------------- */
+let toastTimer;
+function toast(msg, ms = 2600) {
+  const t = $('#toast'); t.textContent = msg; t.classList.remove('hidden');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add('hidden'), ms);
+}
+
+/* ============================================================
+   Basic offline analysis (used when no AI provider is set, or as fallback)
+   ============================================================ */
+const STOP = new Set(('a an the and or but if then so of to in on at by for with from as is are was were be been being am i me my we our you your he she it its they them their this that these those there here what which who whom when where why how all any both each few more most other some such no nor not only own same than too very can will just should now do does did doing have has had having would could also into about over after before again further once up down out off just like yeah yes okay ok um uh hmm really actually basically gonna going get got thing things kind sort mean know think lot let well right its im ive dont thats theres youre were weve theyre one two three much many make made say said see go way time'). split(' '));
+const LEX = Object.assign(Object.create(null), Object.fromEntries([
+  ...'good:2 great:3 excellent:3 amazing:3 awesome:3 happy:3 glad:2 love:3 loved:3 like:1 liked:2 nice:2 wonderful:3 fantastic:3 perfect:3 success:2 successful:2 win:2 won:2 agree:1 agreed:1 thanks:2 thank:2 appreciate:2 appreciated:2 helpful:2 easy:1 excited:3 exciting:3 progress:2 improve:1 improved:2 improvement:2 better:2 best:3 fine:1 pleased:2 positive:2 productive:2 smooth:1 solved:2 fixed:2 resolved:2 strong:1 clear:1 benefit:2 opportunity:2 enjoy:2 enjoyed:2 fun:2 brilliant:3 impressive:3 confident:2 hope:1 hopeful:2 support:1 supportive:2 proud:2 relieved:2 calm:1 beautiful:3 delighted:3 grateful:3 celebrate:3 cool:1 works:1 working:1 ahead:1 safe:1 healthy:2 effective:2 efficient:2 growth:2 profit:2 approved:2 launch:1 launched:2 done:1 completed:2 finished:1'.split(' '),
+  ...'bad:-2 terrible:-3 awful:-3 horrible:-3 hate:-3 dislike:-2 problem:-2 problems:-2 issue:-1 issues:-1 bug:-1 bugs:-1 broken:-2 fail:-2 failed:-2 failure:-2 failing:-2 worse:-2 worst:-3 wrong:-2 difficult:-1 hard:-1 sad:-2 angry:-3 upset:-2 annoyed:-2 annoying:-2 frustrated:-2 frustrating:-2 concern:-1 concerned:-2 concerns:-1 worried:-2 worry:-2 risk:-1 risky:-2 delay:-2 delayed:-2 late:-1 stuck:-2 blocked:-2 blocker:-2 confusing:-2 confused:-2 disappointed:-2 disappointing:-2 unfortunately:-2 sorry:-1 mistake:-2 error:-1 errors:-1 poor:-2 weak:-2 loss:-2 lost:-2 crash:-2 crashed:-2 expensive:-1 pain:-2 painful:-2 stress:-2 stressed:-2 stressful:-2 tired:-1 complaint:-2 complain:-2 conflict:-2 overdue:-2 missed:-2 cancel:-1 cancelled:-2 canceled:-2 sick:-2 afraid:-2 scared:-2 fear:-2 angry:-3 unhappy:-2 hurt:-2 impossible:-2 urgent:-1 bad:-2 rejected:-2 decline:-1 declined:-2 behind:-1 slow:-1'.split(' '),
+].map(p => { const [w, v] = p.split(':'); return [w, +v]; })));
+const NEG = new Set('not no never dont doesnt didnt isnt wasnt arent wont cant cannot without hardly neither nothing nobody'.split(' '));
+
+function words(t) { return t.toLowerCase().replace(/[’']/g, '').match(/[a-z]+/g) || []; }
+function scoreText(t) {
+  const w = words(t); let sum = 0, hits = 0;
+  for (let i = 0; i < w.length; i++) {
+    const v = LEX[w[i]]; if (!v) continue;
+    const negated = NEG.has(w[i - 1]) || NEG.has(w[i - 2]) || NEG.has(w[i - 3]);
+    sum += negated ? -v * 0.8 : v; hits++;
+  }
+  if (!w.length) return 0;
+  return clamp(Math.tanh(sum / Math.max(4, Math.sqrt(w.length) * 1.6)), -1, 1);
+}
+function splitSentences(t) {
+  const parts = (str(t).replace(/\s+/g, ' ').match(/[^.!?।]+[.!?।]+["')\]]*|[^.!?।]+$/g) || []).map(s => s.trim()).filter(Boolean);
+  // Speech recognition often has no punctuation: chunk long runs into ~22-word pieces
+  const out = [];
+  for (const p of parts) {
+    const w = p.split(' ');
+    if (w.length <= 40) { out.push(p); continue; }
+    for (let i = 0; i < w.length; i += 22) out.push(w.slice(i, i + 22).join(' '));
+  }
+  return out;
+}
+const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+function parseWhen(sentence, base) {
+  const s = sentence.toLowerCase();
+  let d = null;
+  const addDays = n => { const x = new Date(base); x.setDate(x.getDate() + n); return x; };
+  if (/\bday after tomorrow\b/.test(s)) d = addDays(2);
+  else if (/\btomorrow\b/.test(s)) d = addDays(1);
+  else if (/\b(today|tonight|this evening|this afternoon)\b/.test(s)) d = new Date(base);
+  else if (/\bnext week\b/.test(s)) d = addDays(7);
+  else {
+    for (let i = 0; i < 7; i++) if (new RegExp('\\b' + DAYS[i] + '\\b').test(s)) { d = addDays(((i - base.getDay() + 7) % 7) || 7); break; }
+    const mm = s.match(/\b(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b/) ||
+               s.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})(?:st|nd|rd|th)?\b/);
+    if (mm) {
+      const day = +(isNaN(+mm[1]) ? mm[2] : mm[1]); const mon = MONTHS.indexOf(isNaN(+mm[1]) ? mm[1] : mm[2]);
+      if (day >= 1 && day <= 31 && mon >= 0) { d = new Date(base.getFullYear(), mon, day, 9, 0); if (d < addDays(-1)) d.setFullYear(d.getFullYear() + 1); }
+    }
+  }
+  let hasTime = false;
+  const tm = s.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)/) || s.match(/\bat (\d{1,2})(?::(\d{2}))\b/) || s.match(/\bat (\d{1,2})\b(?!\s*(?:percent|%|people|items))/);
+  if (tm) {
+    let h = +tm[1]; const mi = tm[2] ? +tm[2] : 0; const ap = (tm[3] || '').replace(/\./g, '');
+    if (ap === 'pm' && h < 12) h += 12; if (ap === 'am' && h === 12) h = 0;
+    if (!ap && h >= 1 && h <= 7) h += 12; // "at 5" in conversation usually means 5 pm
+    if (h <= 23 && mi <= 59) {
+      if (!d) { d = new Date(base); d.setHours(h, mi, 0, 0); if (d < base) d.setDate(d.getDate() + 1); }
+      else d.setHours(h, mi, 0, 0);
+      hasTime = true;
+    }
+  }
+  return d ? localISO(d, hasTime) : '';
+}
+const TODO_RX = /\b(need to|needs to|have to|has to|got to|gotta|must|should|i'll|i will|we'll|we will|you'll|let's|lets|let us|to-?do|action item|follow up|follow-up|remember to|don't forget|dont forget|make sure|going to send|will send|will call|will email|assign|deadline)\b/i;
+const WHEN_RX = /\b(today|tonight|tomorrow|next week|monday|tuesday|wednesday|thursday|friday|saturday|sunday|deadline|due|by (?:end of|eod|eow)|remind|appointment|meeting at|\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)|\d{1,2}(?:st|nd|rd|th)?\s+(?:of\s+)?(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec))/i;
+function cap(s) { s = str(s); return s.charAt(0).toUpperCase() + s.slice(1); }
+function trimWords(s, n = 28) { const w = str(s).split(/\s+/); return w.length > n ? w.slice(0, n).join(' ') + '…' : w.join(' '); }
+
+function localAnalyze(text, baseDate) {
+  const sents = splitSentences(text);
+  const allW = words(text).filter(w => w.length > 3 && !STOP.has(w));
+  const freq = {}; allW.forEach(w => freq[w] = (freq[w] || 0) + 1);
+  const scored = sents.map((s, i) => {
+    const w = words(s).filter(x => !STOP.has(x));
+    const sc = w.reduce((a, x) => a + (freq[x] || 0), 0) / Math.sqrt(Math.max(5, w.length));
+    return { s, i, sc };
+  });
+  const top = n => scored.slice().sort((a, b) => b.sc - a.sc).slice(0, n).sort((a, b) => a.i - b.i).map(x => cap(trimWords(x.s)));
+  const summary = top(Math.min(3, sents.length)).join(' ');
+  const bullets = top(Math.min(6, sents.length));
+  const todos = [], reminders = [], seen = new Set();
+  for (const s of sents) {
+    const key = s.toLowerCase();
+    if (TODO_RX.test(s) && !/\?\s*$/.test(s) && !seen.has(key)) {
+      seen.add(key);
+      const due = WHEN_RX.test(s) ? (s.match(WHEN_RX) || [''])[0] : '';
+      todos.push({ task: cap(trimWords(s, 24)), owner: '', due, priority: /\b(urgent|asap|immediately|critical|must)\b/i.test(s) ? 'high' : 'medium' });
+    }
+    if (WHEN_RX.test(s)) {
+      const when = parseWhen(s, baseDate);
+      reminders.push({ text: cap(trimWords(s, 24)), when, whenText: (s.match(WHEN_RX) || [''])[0], importance: /\b(important|deadline|urgent|don't forget|dont forget|must)\b/i.test(s) ? 'high' : 'medium' });
+    }
+  }
+  const keyTopics = Object.entries(freq).filter(([w, c]) => c > 1).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([w]) => w);
+  const score = scoreText(text);
+  const chunks = Math.min(6, Math.max(1, Math.ceil(sents.length / 4)));
+  const timeline = [];
+  for (let c = 0; c < chunks; c++) {
+    const part = sents.slice(Math.floor(c * sents.length / chunks), Math.floor((c + 1) * sents.length / chunks)).join(' ');
+    if (part) { const sc = scoreText(part); timeline.push({ label: trimWords(part, 9), score: +sc.toFixed(2) }); }
+  }
+  const tlScores = timeline.map(t => t.score);
+  const spread = tlScores.length ? Math.max(...tlScores) - Math.min(...tlScores) : 0;
+  const label = spread > 0.9 && Math.abs(score) < 0.35 ? 'mixed' : sentLabel(score);
+  return {
+    engine: 'basic', title: '', summary, bullets, todos: todos.slice(0, 15), reminders: reminders.slice(0, 12),
+    decisions: sents.filter(s => /\b(decided|we agreed|agreed to|decision|final call|going with|settled on)\b/i.test(s)).map(s => cap(trimWords(s))).slice(0, 8),
+    openQuestions: sents.filter(s => /\?$/.test(s) || /^(what|why|how|when|where|who|should|could|can|do|does|is|are)\b/i.test(s) && s.split(' ').length < 25).map(s => cap(trimWords(s))).slice(0, 8),
+    keyTopics, people: [], highlights: [],
+    sentiment: { label, score: +score.toFixed(2), confidence: 0.4, explanation: 'Estimated on this device from word choice. Add an AI provider in Settings for a fuller reading of tone and emotion.', emotions: [], timeline },
+  };
+}
+
+/* ============================================================
+   AI providers
+   ============================================================ */
+async function errText(resp) {
+  let t = ''; try { t = await resp.text(); const j = JSON.parse(t); t = j.error?.message || j.message || t; } catch {}
+  const hint = resp.status === 401 ? ' Check the API key in Settings.' : resp.status === 429 ? ' Rate limit or quota reached; try again shortly.' : '';
+  return `${resp.status}: ${str(t).slice(0, 240) || resp.statusText}.${hint}`;
+}
+function aiReady(s = settings()) {
+  if (s.aiProvider === 'anthropic') return !!s.anthropicKey;
+  if (s.aiProvider === 'openai') return !!s.openaiKey;
+  return false;
+}
+async function callLLM({ system, prompt, schema, name }) {
+  const s = settings();
+  if (s.aiProvider === 'anthropic') {
+    if (!s.anthropicKey) throw new Error('Add your Anthropic API key in Settings.');
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-api-key': s.anthropicKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({
+        model: s.anthropicModel || DEFAULTS.anthropicModel, max_tokens: 8000, system,
+        messages: [{ role: 'user', content: prompt }],
+        tools: [{ name, description: 'Save the structured analysis.', input_schema: schema }],
+        tool_choice: { type: 'tool', name },
+      }),
+    });
+    if (!resp.ok) throw new Error('Claude API ' + await errText(resp));
+    const j = await resp.json();
+    const tu = (j.content || []).find(c => c.type === 'tool_use');
+    if (!tu) throw new Error('Claude returned no analysis.');
+    return tu.input;
+  }
+  if (s.aiProvider === 'openai') {
+    if (!s.openaiKey) throw new Error('Add your OpenAI-compatible API key in Settings.');
+    const resp = await fetch(s.openaiBase.replace(/\/+$/, '') + '/chat/completions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer ' + s.openaiKey },
+      body: JSON.stringify({
+        model: s.chatModel || DEFAULTS.chatModel,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: system + '\n\nReply with one JSON object that matches this JSON Schema exactly (no prose, no code fences):\n' + JSON.stringify(schema) },
+          { role: 'user', content: prompt },
+        ],
+      }),
+    });
+    if (!resp.ok) throw new Error('Chat API ' + await errText(resp));
+    const j = await resp.json();
+    const txt = j.choices?.[0]?.message?.content || '';
+    const m = txt.match(/\{[\s\S]*\}/);
+    if (!m) throw new Error('The model did not return JSON.');
+    return JSON.parse(m[0]);
+  }
+  throw new Error('No AI provider selected.');
+}
+
+async function transcribeAPI(blob, type) {
+  const s = settings();
+  if (!s.openaiKey) throw new Error('Add an OpenAI-compatible API key in Settings to transcribe audio files.');
+  if (blob.size > 25 * 1024 * 1024) throw new Error(`This recording is ${(blob.size / 1048576).toFixed(1)} MB; the transcription API accepts up to 25 MB. Use live transcription for very long sessions, or split the audio.`);
+  const t = (type || blob.type || '').toLowerCase();
+  const ext = /mp4|m4a|aac/.test(t) ? 'm4a' : /webm/.test(t) ? 'webm' : /ogg|opus/.test(t) ? 'ogg' : /wav/.test(t) ? 'wav' : /mpeg|mp3/.test(t) ? 'mp3' : 'm4a';
+  const fd = new FormData();
+  fd.append('file', blob, 'recording.' + ext);
+  fd.append('model', s.transcribeModel || 'whisper-1');
+  const verbose = /whisper/i.test(s.transcribeModel);
+  fd.append('response_format', verbose ? 'verbose_json' : 'json');
+  const lang = (s.language || '').split('-')[0].toLowerCase();
+  if (lang && lang !== 'auto') fd.append('language', lang);
+  const resp = await fetch(s.openaiBase.replace(/\/+$/, '') + '/audio/transcriptions', { method: 'POST', headers: { authorization: 'Bearer ' + s.openaiKey }, body: fd });
+  if (!resp.ok) throw new Error('Transcription API ' + await errText(resp));
+  const j = await resp.json();
+  return { text: str(j.text), segments: arr(j.segments).map(x => ({ t: +x.start || 0, text: str(x.text) })).filter(x => x.text) };
+}
+
+/* ---------- Schemas and prompts ---------- */
+const S = { str: { type: 'string' }, strs: { type: 'array', items: { type: 'string' } } };
+const SENTIMENT_SCHEMA = {
+  type: 'object',
+  properties: {
+    label: { type: 'string', enum: ['positive', 'neutral', 'negative', 'mixed'] },
+    score: { type: 'number', description: '-1 (very negative) to 1 (very positive)' },
+    confidence: { type: 'number', description: '0 to 1' },
+    explanation: { type: 'string', description: '1-3 sentences on tone and why' },
+    emotions: { type: 'array', items: { type: 'object', properties: { name: S.str, intensity: { type: 'number', description: '0 to 1' } }, required: ['name', 'intensity'] }, description: 'Up to 6 notable emotions' },
+  },
+  required: ['label', 'score', 'explanation', 'emotions'],
+};
+const TODO_SCHEMA = { type: 'array', items: { type: 'object', properties: { task: S.str, owner: { type: 'string', description: 'Person responsible if named, else ""' }, due: { type: 'string', description: 'Due date/time in words as stated, else ""' }, priority: { type: 'string', enum: ['high', 'medium', 'low'] } }, required: ['task', 'priority'] } };
+const REMINDER_SCHEMA = { type: 'array', items: { type: 'object', properties: { text: S.str, when: { type: 'string', description: 'Local date "YYYY-MM-DD" or date-time "YYYY-MM-DDTHH:mm", resolved against the recording time; "" if no time applies' }, whenText: { type: 'string', description: 'The time as spoken, e.g. "next Friday at 3"' }, importance: { type: 'string', enum: ['high', 'medium', 'low'] } }, required: ['text', 'when', 'importance'] } };
+
+const REC_SCHEMA = {
+  type: 'object',
+  properties: {
+    title: { type: 'string', description: 'Short descriptive title, max 8 words' },
+    summary: { type: 'string', description: '3-6 sentence summary' },
+    bullets: { ...S.strs, description: '4-10 key points' },
+    todos: TODO_SCHEMA,
+    reminders: REMINDER_SCHEMA,
+    decisions: S.strs, openQuestions: S.strs,
+    keyTopics: { ...S.strs, description: '3-8 short topic tags' },
+    people: { ...S.strs, description: 'Names of people mentioned or speaking' },
+    highlights: { ...S.strs, description: 'Notable facts, figures, quotes or numbers worth keeping' },
+    sentiment: { ...SENTIMENT_SCHEMA, properties: { ...SENTIMENT_SCHEMA.properties, timeline: { type: 'array', description: '3-8 consecutive parts of the recording, in order', items: { type: 'object', properties: { label: { type: 'string', description: 'What this part was about, max 8 words' }, score: { type: 'number' } }, required: ['label', 'score'] } } }, required: [...SENTIMENT_SCHEMA.required, 'timeline'] },
+  },
+  required: ['title', 'summary', 'bullets', 'todos', 'reminders', 'decisions', 'openQuestions', 'keyTopics', 'people', 'highlights', 'sentiment'],
+};
+const EVENT_SCHEMA = {
+  type: 'object',
+  properties: {
+    summary: { type: 'string', description: 'Overall 4-8 sentence summary across all recordings' },
+    highlights: { ...S.strs, description: '5-12 most important points across the event' },
+    todos: { type: 'array', items: { type: 'object', properties: { ...TODO_SCHEMA.items.properties, source: { type: 'string', description: 'Title of the recording it came from' } }, required: ['task', 'priority'] }, description: 'Consolidated, de-duplicated action items' },
+    reminders: { type: 'array', items: { type: 'object', properties: { ...REMINDER_SCHEMA.items.properties, source: S.str }, required: ['text', 'when', 'importance'] } },
+    decisions: S.strs, openQuestions: S.strs,
+    themes: { ...S.strs, description: 'Recurring themes' },
+    nextSteps: { ...S.strs, description: 'Suggested next steps' },
+    sentiment: { ...SENTIMENT_SCHEMA, properties: { ...SENTIMENT_SCHEMA.properties, trend: { type: 'string', enum: ['improving', 'declining', 'stable', 'mixed'] } }, required: [...SENTIMENT_SCHEMA.required, 'trend'] },
+  },
+  required: ['summary', 'highlights', 'todos', 'reminders', 'decisions', 'openQuestions', 'themes', 'nextSteps', 'sentiment'],
+};
+function systemPrompt() {
+  const s = settings();
+  return 'You analyze recorded conversations, meetings, calls, lectures and voice notes. Be faithful to the source: never invent facts, names, numbers or dates. ' +
+    'Transcripts come from speech recognition and may contain mistakes or missing punctuation; interpret them sensibly. Use empty arrays when nothing applies. ' +
+    (s.outLang ? `Write all output text in ${s.outLang}.` : 'Write output in the same language as the transcript.');
+}
+function tzName() { try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { return ''; } }
+
+function normSent(x, timeline) {
+  x = x || {};
+  let score = typeof x.score === 'number' ? x.score : parseFloat(x.score);
+  if (isNaN(score)) score = 0;
+  const out = {
+    label: ['positive', 'neutral', 'negative', 'mixed'].includes(x.label) ? x.label : sentLabel(score),
+    score: +clamp(score, -1, 1).toFixed(2),
+    confidence: typeof x.confidence === 'number' ? clamp(x.confidence, 0, 1) : null,
+    explanation: str(x.explanation),
+    emotions: arr(x.emotions).map(e => ({ name: str(e.name), intensity: clamp(+e.intensity || 0, 0, 1) })).filter(e => e.name).slice(0, 8),
+  };
+  if (timeline) out.timeline = arr(x.timeline).map(t => ({ label: str(t.label), score: +clamp(+t.score || 0, -1, 1).toFixed(2) })).slice(0, 10);
+  if (x.trend) out.trend = str(x.trend);
+  return out;
+}
+function normTodos(v) { return arr(v).map(t => ({ task: str(t.task || t.text), owner: str(t.owner), due: str(t.due), priority: ['high', 'medium', 'low'].includes(t.priority) ? t.priority : 'medium', source: str(t.source), done: !!t.done })).filter(t => t.task); }
+function normRems(v) { return arr(v).map(r => ({ text: str(r.text), when: str(r.when), whenText: str(r.whenText), importance: ['high', 'medium', 'low'].includes(r.importance) ? r.importance : 'medium', source: str(r.source) })).filter(r => r.text); }
+function normRec(a, engine) {
+  return {
+    engine, analyzedAt: Date.now(), title: str(a.title), summary: str(a.summary), bullets: arr(a.bullets).map(str).filter(Boolean),
+    todos: normTodos(a.todos), reminders: normRems(a.reminders), decisions: arr(a.decisions).map(str).filter(Boolean),
+    openQuestions: arr(a.openQuestions).map(str).filter(Boolean), keyTopics: arr(a.keyTopics).map(str).filter(Boolean),
+    people: arr(a.people).map(str).filter(Boolean), highlights: arr(a.highlights).map(str).filter(Boolean), sentiment: normSent(a.sentiment, true),
+  };
+}
+function keepDone(oldTodos, newTodos) {
+  const done = new Set(arr(oldTodos).filter(t => t.done).map(t => t.task.toLowerCase()));
+  newTodos.forEach(t => { if (done.has(t.task.toLowerCase())) t.done = true; });
+  return newTodos;
+}
+
+async function analyzeRecording(rec) {
+  const s = settings();
+  const ev = await DB.get('events', rec.eventId);
+  const base = new Date(rec.createdAt);
+  if (!aiReady(s)) return normRec(localAnalyze(rec.transcript, base), 'basic');
+  const prompt =
+`Recording title: ${rec.title}
+Event: ${ev?.title || ''}${ev?.description ? '\nEvent notes: ' + ev.description : ''}
+Recorded at: ${localISO(base, true)} (${tzName()}), ${DAYS[base.getDay()]}
+Duration: ${fmtDur(rec.duration)}
+
+Transcript:
+"""
+${str(rec.transcript).slice(0, 400000)}
+"""
+
+Analyze this recording and save every field. Guidance:
+- todos: concrete action items that someone committed to or was asked to do.
+- reminders: things worth being reminded of later: deadlines, appointments, promises, dates, important facts not to forget. Resolve relative times ("tomorrow at 5") against the recording time.
+- sentiment: overall tone of the conversation; timeline follows the recording in order.`;
+  const out = await callLLM({ system: systemPrompt(), prompt, schema: REC_SCHEMA, name: 'save_recording_analysis' });
+  return normRec(out, s.aiProvider === 'anthropic' ? 'Claude' : 'OpenAI-compatible');
+}
+
+function eventBasis(recs) { return recs.filter(r => r.analysis).map(r => r.id + ':' + r.analysis.analyzedAt).sort().join('|'); }
+function eventStats(recs) {
+  const an = recs.filter(r => r.analysis?.sentiment && typeof r.analysis.sentiment.score === 'number').sort((a, b) => a.createdAt - b.createdAt);
+  const total = recs.reduce((a, r) => a + (r.duration || 0), 0);
+  let avg = null, trend = null;
+  if (an.length) {
+    const wsum = an.reduce((a, r) => a + Math.max(30, r.duration || 0), 0);
+    avg = an.reduce((a, r) => a + r.analysis.sentiment.score * Math.max(30, r.duration || 0), 0) / wsum;
+    if (an.length > 1) {
+      const half = Math.ceil(an.length / 2);
+      const m = xs => xs.reduce((a, r) => a + r.analysis.sentiment.score, 0) / xs.length;
+      const d = m(an.slice(-half)) - m(an.slice(0, half));
+      trend = d > 0.15 ? 'improving' : d < -0.15 ? 'declining' : 'stable';
+    }
+  }
+  const openTodos = recs.reduce((a, r) => a + arr(r.analysis?.todos).filter(t => !t.done).length, 0);
+  return { count: recs.length, total, avg, trend, series: an.map(r => ({ score: r.analysis.sentiment.score, title: r.title, id: r.id })), openTodos };
+}
+function localEventAnalysis(ev, recs) {
+  const an = recs.filter(r => r.analysis).sort((a, b) => a.createdAt - b.createdAt);
+  const st = eventStats(recs);
+  const uniq = xs => [...new Map(xs.map(x => [(x.task || x.text || x).toLowerCase(), x])).values()];
+  return {
+    engine: 'basic', analyzedAt: Date.now(),
+    summary: an.map(r => `${r.title}: ${((r.analysis.summary || '').match(/^.*?[.!?](?=\s|$)/) || [r.analysis.summary || ''])[0]}`).join(' '),
+    highlights: uniq(an.flatMap(r => r.analysis.bullets.slice(0, 3))),
+    todos: uniq(an.flatMap(r => r.analysis.todos.map(t => ({ ...t, done: false, source: r.title })))),
+    reminders: uniq(an.flatMap(r => r.analysis.reminders.map(x => ({ ...x, source: r.title })))),
+    decisions: uniq(an.flatMap(r => r.analysis.decisions)), openQuestions: uniq(an.flatMap(r => r.analysis.openQuestions)),
+    themes: [...new Set(an.flatMap(r => r.analysis.keyTopics))].slice(0, 10), nextSteps: [],
+    sentiment: { label: sentLabel(st.avg) || 'neutral', score: +(st.avg || 0).toFixed(2), confidence: 0.4, trend: st.trend || 'stable', emotions: [], explanation: 'Duration-weighted average of the recordings in this event, calculated on this device.' },
+  };
+}
+async function analyzeEvent(ev, recs) {
+  const s = settings();
+  const an = recs.filter(r => r.analysis).sort((a, b) => a.createdAt - b.createdAt);
+  if (!an.length) throw new Error('Analyze at least one recording first.');
+  let result;
+  if (!aiReady(s)) result = localEventAnalysis(ev, recs);
+  else {
+    const parts = an.map((r, i) => {
+      const a = r.analysis;
+      const tx = str(r.transcript);
+      return `### Recording ${i + 1}: ${r.title}
+Recorded: ${localISO(new Date(r.createdAt), true)}, duration ${fmtDur(r.duration)}
+Summary: ${a.summary}
+Key points: ${a.bullets.join(' | ')}
+To-dos: ${a.todos.map(t => t.task + (t.owner ? ` (owner: ${t.owner})` : '') + (t.due ? ` (due: ${t.due})` : '') + (t.done ? ' [done]' : '')).join(' | ') || 'none'}
+Reminders: ${a.reminders.map(x => x.text + (x.when ? ` (${x.when})` : '')).join(' | ') || 'none'}
+Decisions: ${a.decisions.join(' | ') || 'none'}
+Open questions: ${a.openQuestions.join(' | ') || 'none'}
+Sentiment: ${a.sentiment.label} (${a.sentiment.score}) ${a.sentiment.explanation}
+${tx.length < 12000 ? 'Transcript:\n' + tx : 'Transcript excerpt:\n' + tx.slice(0, 6000) + '\n…\n' + tx.slice(-4000)}`;
+    }).join('\n\n');
+    const prompt = `Event: ${ev.title}${ev.description ? '\nEvent notes: ' + ev.description : ''}
+Today: ${localISO(new Date(), true)} (${tzName()})
+Recordings in this event, in chronological order:
+
+${parts.slice(0, 450000)}
+
+Combine these into one event-level analysis and save every field. De-duplicate to-dos and reminders across recordings, keep items already marked [done] out of the to-do list, and describe how the sentiment changed across recordings in the explanation.`;
+    const out = await callLLM({ system: systemPrompt(), prompt, schema: EVENT_SCHEMA, name: 'save_event_analysis' });
+    result = {
+      engine: s.aiProvider === 'anthropic' ? 'Claude' : 'OpenAI-compatible', analyzedAt: Date.now(),
+      summary: str(out.summary), highlights: arr(out.highlights).map(str).filter(Boolean), todos: normTodos(out.todos), reminders: normRems(out.reminders),
+      decisions: arr(out.decisions).map(str).filter(Boolean), openQuestions: arr(out.openQuestions).map(str).filter(Boolean),
+      themes: arr(out.themes).map(str).filter(Boolean), nextSteps: arr(out.nextSteps).map(str).filter(Boolean), sentiment: normSent(out.sentiment, false),
+    };
+  }
+  result.todos = keepDone(ev.analysis?.todos, result.todos);
+  result.basis = eventBasis(recs);
+  return result;
+}
+
+/* ============================================================
+   Processing pipeline
+   ============================================================ */
+const busy = new Set();
+async function patchRec(id, patch) {
+  const r = await DB.get('recordings', id); if (!r) return null;
+  Object.assign(r, patch, { updatedAt: Date.now() });
+  await DB.put('recordings', r);
+  return r;
+}
+async function processRecording(id, { transcribe = true, analyze = true } = {}) {
+  if (busy.has(id)) return;
+  busy.add(id);
+  const s = settings();
+  try {
+    let r = await DB.get('recordings', id); if (!r) return;
+    if (transcribe && (s.transcriber === 'api' || r.needsApi) && s.openaiKey) {
+      r = await patchRec(id, { status: 'transcribing', error: '' }); refresh(id);
+      try {
+        const a = await DB.get('audio', id);
+        if (!a) throw new Error('No audio saved for this recording.');
+        const res = await transcribeAPI(new Blob([a.buf], { type: a.type }), a.type);
+        r = await patchRec(id, { transcript: res.text, segments: res.segments, transcriptSource: 'api', needsApi: false });
+      } catch (e) {
+        const keepLive = str(r.transcript);
+        r = await patchRec(id, { status: keepLive ? 'saved' : 'error', error: 'Transcription failed. ' + e.message + (keepLive ? ' The live transcript was kept.' : '') });
+        if (!keepLive) { refresh(id); return; }
+      }
+    } else if (transcribe && r.needsApi && !str(r.transcript)) {
+      await patchRec(id, { status: 'error', error: 'This audio needs API transcription. Add an OpenAI-compatible key in Settings, then tap Transcribe.' });
+      refresh(id); return;
+    }
+    if (analyze && str(r.transcript)) {
+      r = await patchRec(id, { status: 'analyzing' }); refresh(id);
+      try {
+        const an = await analyzeRecording(r);
+        r = await DB.get('recordings', id);
+        an.todos = keepDone(r.analysis?.todos, an.todos);
+        const patch = { analysis: an, status: 'done', error: '' };
+        if (!r.titleEdited && an.title) patch.title = an.title;
+        await patchRec(id, patch);
+      } catch (e) {
+        await patchRec(id, { status: 'error', error: 'Analysis failed. ' + e.message });
+      }
+    } else if (!str(r.transcript)) {
+      await patchRec(id, { status: 'error', error: s.transcriber === 'api' && !s.openaiKey ? 'No transcript yet. Add an API key in Settings and tap Transcribe, or type the transcript yourself.' : 'No speech was captured. You can transcribe with an API (Settings) or type the transcript yourself.' });
+    } else {
+      await patchRec(id, { status: r.analysis ? 'done' : 'saved' });
+    }
+  } finally {
+    busy.delete(id);
+    refresh(id);
+  }
+}
+async function touchEvent(id) { const ev = await DB.get('events', id); if (ev) { ev.updatedAt = Date.now(); await DB.put('events', ev); } }
+
+/* ============================================================
+   Views
+   ============================================================ */
+const ui = { homeTab: 'events', eventTab: 'recordings', recTab: 'summary', recId: null, editing: false };
+let renderSeq = 0;
+const app = $('#app');
+
+function topbar(left, title, right = '') {
+  return `<header class="top"><div class="wrap topbar">${left}<div class="grow">${title}</div>${right}</div></header>`;
+}
+function setDock(show, label = 'Record') { $('#dock').classList.toggle('hidden', !show); $('#dock-label').textContent = label; }
+function tabs(name, items, cur) {
+  return `<div class="tabs" role="tablist">${items.map(([k, l, badge]) => `<button role="tab" aria-selected="${k === cur}" data-action="tab" data-group="${name}" data-tab="${k}">${l}${badge ? `<span class="badge">${badge}</span>` : ''}</button>`).join('')}</div>`;
+}
+
+async function route() {
+  const seq = ++renderSeq;
+  const parts = (location.hash.slice(1) || '/').split('/').filter(Boolean);
+  try {
+    if (parts[0] === 'event' && parts[1]) await renderEvent(parts[1], seq);
+    else if (parts[0] === 'rec' && parts[1]) await renderRec(parts[1], seq);
+    else await renderHome(seq);
+  } catch (e) { console.error(e); app.innerHTML = `<div class="wrap"><div class="errbox">Something went wrong: ${esc(e.message)}</div></div>`; }
+}
+function refresh(recId) {
+  if (ui.editing) return;
+  const h = location.hash;
+  if (!recId || h.includes(recId) || h.startsWith('#/event') || h === '' || h === '#/' || h === '#') {
+    const y = window.scrollY; route().then(() => window.scrollTo(0, y));
+  }
+}
+
+/* ---------- Home ---------- */
+async function renderHome(seq) {
+  const [events, recs] = await Promise.all([DB.all('events'), DB.all('recordings')]);
+  if (seq !== renderSeq) return;
+  const s = settings();
+  events.sort((a, b) => (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt));
+  const byEv = {}; recs.forEach(r => (byEv[r.eventId] ||= []).push(r));
+  const { todos, reminders } = collectTasks(recs, events);
+  const banner = !aiReady(s) ? `<div class="banner"><b>Working fully offline.</b> Transcripts come from your phone's built-in speech recognition and summaries are basic. For accurate transcripts and AI summaries, add a Claude or OpenAI key in <button class="linkbtn" data-action="settings">Settings</button>.</div>` : '';
+  let body = '';
+  if (ui.homeTab === 'events') {
+    body = !events.length
+      ? `<div class="empty"><b>No events yet</b>Tap Record to capture your first conversation, or create an event to group related recordings.</div>`
+      : `<div class="list">${events.map(ev => {
+          const st = eventStats(byEv[ev.id] || []);
+          const label = sentLabel(st.avg);
+          return `<a class="row ${label ? 's-' + label : ''}" href="#/event/${ev.id}">
+            <div class="t"><span>${esc(ev.title)}</span>${st.avg != null ? `<span class="pill s-${label}">${fmtScore(st.avg)}</span>` : ''}</div>
+            <div class="m"><span>${fmtDate(ev.createdAt, false)}</span><span>${st.count} recording${st.count === 1 ? '' : 's'}</span><span class="num">${fmtDur(st.total)}</span>${st.openTodos ? `<span>${st.openTodos} open to-do${st.openTodos === 1 ? '' : 's'}</span>` : ''}</div></a>`;
+        }).join('')}</div>`;
+    body += `<div class="btns"><button class="btn" data-action="new-event">${ICON.plus}New event</button><button class="btn" data-action="upload" data-event="">${ICON.upload}Import audio</button></div>`;
+  } else {
+    body = renderTaskLists(todos, reminders, true);
+  }
+  app.innerHTML = topbar('', `<div class="brand">Ear<i>shot</i></div>`, `<button class="iconbtn" data-action="settings" aria-label="Settings">${ICON.gear}</button>`) +
+    `<main class="wrap">${banner}${tabs('home', [['events', 'Events'], ['tasks', 'To-dos & reminders', todos.length || '']], ui.homeTab)}${body}</main>`;
+  setDock(true, 'Record');
+  ui.dockEvent = '';
+}
+function collectTasks(recs, events) {
+  const evName = Object.fromEntries(events.map(e => [e.id, e.title]));
+  const todos = [], reminders = [];
+  for (const r of recs) {
+    arr(r.analysis?.todos).forEach((t, i) => { if (!t.done) todos.push({ ...t, recId: r.id, i, src: `${evName[r.eventId] || ''} › ${r.title}`, at: r.createdAt }); });
+    arr(r.analysis?.reminders).forEach((x, i) => reminders.push({ ...x, recId: r.id, i, src: `${evName[r.eventId] || ''} › ${r.title}`, at: r.createdAt }));
+  }
+  const prio = { high: 0, medium: 1, low: 2 };
+  todos.sort((a, b) => prio[a.priority] - prio[b.priority] || b.at - a.at);
+  const now = Date.now() - 864e5;
+  reminders.sort((a, b) => {
+    const da = parseLocal(a.when)?.date?.getTime(), db = parseLocal(b.when)?.date?.getTime();
+    const pa = da && da < now, pb = db && db < now;
+    if (pa !== pb) return pa ? 1 : -1;
+    if (da && db) return pa ? db - da : da - db;
+    return da ? -1 : db ? 1 : b.at - a.at;
+  });
+  return { todos, reminders };
+}
+
+/* ---------- Shared renderers ---------- */
+function todoHTML(t, attrs, showSrc) {
+  return `<label class="task ${t.done ? 'done' : ''}"><input type="checkbox" ${t.done ? 'checked' : ''} ${attrs}>
+    <div class="body"><div class="txt">${esc(t.task)}</div>
+    <div class="sub">${t.priority === 'high' ? '<span class="prio-high">High priority</span>' : ''}${t.owner ? `<span>${esc(t.owner)}</span>` : ''}${t.due ? `<span>Due ${esc(t.due)}</span>` : ''}${showSrc && t.src ? `<a class="src" href="#/rec/${t.recId}">${esc(t.src)}</a>` : t.source ? `<span>${esc(t.source)}</span>` : ''}</div></div></label>`;
+}
+function remHTML(x, idx, showSrc, scope) {
+  const p = parseLocal(x.when);
+  const past = p && p.date.getTime() < Date.now() - (p.hasTime ? 0 : 864e5);
+  const whenBox = p
+    ? `<div class="when"><b>${p.date.getDate()}</b>${p.date.toLocaleDateString(undefined, { month: 'short' })}${p.hasTime ? '<br>' + p.date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : ''}</div>`
+    : `<div class="when">Any<br>time</div>`;
+  return `<div class="rem ${past ? 'past' : ''}">${whenBox}<div class="body"><div>${esc(x.text)}</div>
+    <div class="task" style="border:0;padding:2px 0 0"><div class="sub">${x.importance === 'high' ? '<span class="prio-high">Important</span>' : ''}${x.whenText ? `<span>${esc(x.whenText)}</span>` : ''}${showSrc && x.src ? `<a class="src" href="#/rec/${x.recId}">${esc(x.src)}</a>` : x.source ? `<span>${esc(x.source)}</span>` : ''}
+    <button class="linkbtn" data-action="ics" data-scope="${scope}" data-idx="${idx}">Add to calendar</button></div></div></div></div>`;
+}
+function renderTaskLists(todos, reminders, showSrc) {
+  window.__remCache = reminders;
+  const t = todos.length ? `<div class="panel">${todos.map(x => todoHTML(x, `data-action="todo" data-rec="${x.recId}" data-i="${x.i}"`, showSrc)).join('')}</div>` : `<div class="panel muted">No open to-dos.</div>`;
+  const r = reminders.length ? `<div class="panel">${reminders.map((x, i) => remHTML(x, i, showSrc, 'cache')).join('')}</div>` : `<div class="panel muted">No reminders.</div>`;
+  return `<h2 class="sec">Open to-dos</h2>${t}<h2 class="sec">Reminders</h2>${r}`;
+}
+function listPanel(title, items) {
+  items = arr(items); if (!items.length) return '';
+  return `<h2 class="sec">${title}</h2><div class="panel"><ul class="pts">${items.map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>`;
+}
+function chipsPanel(title, items) {
+  items = arr(items); if (!items.length) return '';
+  return `<h2 class="sec">${title}</h2><div class="chips">${items.map(i => `<span class="chip">${esc(i)}</span>`).join('')}</div>`;
+}
+function sentColor(score) { return score > 0.15 ? 'var(--pos)' : score < -0.15 ? 'var(--neg)' : 'var(--neu)'; }
+function sentimentPanel(sent, extra = '') {
+  if (!sent) return '';
+  const pct = ((clamp(sent.score, -1, 1) + 1) / 2) * 100;
+  const emo = arr(sent.emotions).length ? `<h2 class="sec">Emotions</h2><div class="panel bars">${sent.emotions.map(e => `<div class="bar"><span>${esc(cap(e.name))}</span><div class="tr"><div class="fl" style="width:${Math.round(e.intensity * 100)}%"></div></div><span class="num muted">${Math.round(e.intensity * 100)}%</span></div>`).join('')}</div>` : '';
+  const tl = arr(sent.timeline).length ? `<h2 class="sec">How the mood moved</h2><div class="panel tl">${sent.timeline.map(t => {
+    const w = Math.abs(t.score) * 50; const left = t.score >= 0 ? 50 : 50 - w;
+    return `<div class="tl-row"><span>${esc(t.label)}</span><div class="tl-track" title="${fmtScore(t.score)}"><div class="tl-fill" style="left:${left}%;width:${Math.max(w, 1.5)}%;background:${sentColor(t.score)}"></div></div></div>`;
+  }).join('')}<div class="gauge-l" style="margin-top:4px"><span></span><span>negative · positive</span></div></div>` : '';
+  return `<div class="panel"><div class="big-sent"><span class="score num" style="color:${sentColor(sent.score)}">${fmtScore(sent.score)}</span><span class="pill s-${esc(sent.label)}">${esc(sent.label)}</span>${sent.trend ? `<span class="pill plain">${esc(sent.trend)}</span>` : ''}</div>
+    <div class="gauge"><div class="mark" style="left:${pct}%"></div></div><div class="gauge-l"><span>Negative</span><span>Neutral</span><span>Positive</span></div>
+    ${sent.explanation ? `<p style="margin-top:12px">${esc(sent.explanation)}</p>` : ''}${sent.confidence != null ? `<p class="small muted">Confidence ${Math.round(sent.confidence * 100)}%</p>` : ''}</div>${extra}${emo}${tl}`;
+}
+function sparkline(series) {
+  if (series.length < 2) return '';
+  const W = 320, H = 64, P = 8;
+  const x = i => P + (i * (W - 2 * P)) / (series.length - 1);
+  const y = v => H / 2 - v * (H / 2 - P);
+  const pts = series.map((p, i) => `${x(i).toFixed(1)},${y(p.score).toFixed(1)}`).join(' ');
+  return `<h2 class="sec">Sentiment across recordings</h2><div class="panel"><svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Sentiment of each recording in order">
+    <line x1="${P}" x2="${W - P}" y1="${H / 2}" y2="${H / 2}" stroke="var(--line)" stroke-dasharray="3 4"/>
+    <polyline points="${pts}" fill="none" stroke="var(--ink-2)" stroke-width="2" vector-effect="non-scaling-stroke"/>
+    ${series.map((p, i) => `<circle cx="${x(i)}" cy="${y(p.score)}" r="4.5" fill="${sentColor(p.score)}"><title>${esc(p.title)}: ${fmtScore(p.score)}</title></circle>`).join('')}
+  </svg><div class="gauge-l"><span>First</span><span>Latest</span></div></div>`;
+}
+
+/* ---------- Event ---------- */
+async function renderEvent(id, seq) {
+  const [ev, recs] = await Promise.all([DB.get('events', id), DB.byEvent(id)]);
+  if (seq !== renderSeq) return;
+  if (!ev) { location.hash = '#/'; return; }
+  recs.sort((a, b) => b.createdAt - a.createdAt);
+  const st = eventStats(recs);
+  const a = ev.analysis;
+  const stale = a && a.basis !== eventBasis(recs);
+  let body = '';
+  if (ui.eventTab === 'recordings') {
+    body = !recs.length ? `<div class="empty"><b>No recordings yet</b>Tap Record to add the first one to this event.</div>`
+      : `<div class="list">${recs.map(r => `<a class="row ${r.analysis ? 's-' + r.analysis.sentiment.label : ''}" href="#/rec/${r.id}">
+          <div class="t"><span>${esc(r.title)}</span>${statusPill(r)}</div>
+          <div class="m"><span>${fmtDate(r.createdAt)}</span><span class="num">${fmtDur(r.duration)}</span>${r.analysis?.todos?.length ? `<span>${r.analysis.todos.filter(t => !t.done).length}/${r.analysis.todos.length} to-dos open</span>` : ''}</div></a>`).join('')}</div>`;
+    body += `<div class="btns"><button class="btn" data-action="upload" data-event="${ev.id}">${ICON.upload}Import audio</button></div>`;
+  } else {
+    const analyzed = recs.filter(r => r.analysis).length;
+    const actions = `<div class="btns"><button class="btn primary" data-action="analyze-event" data-id="${ev.id}" ${analyzed ? '' : 'disabled'} ${busy.has(ev.id) ? 'disabled' : ''}>${ICON.spark}${busy.has(ev.id) ? 'Analyzing…' : a ? 'Re-analyze event' : 'Analyze event'}</button></div>`;
+    if (!a) {
+      body = `<div class="panel"><p>Combine every recording in this event into one summary, a de-duplicated to-do list, reminders, and an overall sentiment.</p>${!analyzed ? '<p class="muted small">Analyze at least one recording first.</p>' : ''}${actions}</div>`;
+    } else {
+      window.__evRem = a.reminders;
+      body = `${stale ? `<div class="banner">Recordings changed since this analysis. Re-analyze to include them.</div>` : ''}
+        <h2 class="sec">Summary</h2><div class="panel"><p>${esc(a.summary)}</p><p class="small muted">${esc(a.engine === 'basic' ? 'Basic offline analysis' : 'Analyzed with ' + a.engine)}, ${fmtDate(a.analyzedAt)}</p>${actions}</div>
+        ${listPanel('Highlights', a.highlights)}
+        <h2 class="sec">To-dos</h2>${a.todos.length ? `<div class="panel">${a.todos.map((t, i) => todoHTML(t, `data-action="etodo" data-ev="${ev.id}" data-i="${i}"`, false)).join('')}</div>` : '<div class="panel muted">No to-dos.</div>'}
+        <h2 class="sec">Reminders</h2>${a.reminders.length ? `<div class="panel">${a.reminders.map((x, i) => remHTML(x, i, false, 'event')).join('')}</div>` : '<div class="panel muted">No reminders.</div>'}
+        ${listPanel('Decisions', a.decisions)}${listPanel('Open questions', a.openQuestions)}${listPanel('Suggested next steps', a.nextSteps)}${chipsPanel('Themes', a.themes)}
+        <h2 class="sec">Event sentiment</h2>${sentimentPanel(a.sentiment)}`;
+    }
+    body += sparkline(st.series);
+  }
+  const head = `<h1 class="page">${esc(ev.title)}</h1>${ev.description ? `<p class="muted" style="margin:0 0 6px">${esc(ev.description)}</p>` : ''}
+    <div class="meta"><span>${fmtDate(ev.createdAt, false)}</span><span>${st.count} recording${st.count === 1 ? '' : 's'}</span><span class="num">${fmtDur(st.total)}</span>${st.avg != null ? `<span>Mood ${sentPill({ score: +st.avg.toFixed(2), label: sentLabel(st.avg) })}</span>` : ''}${st.trend ? `<span>${esc(st.trend)}</span>` : ''}</div>`;
+  app.innerHTML = topbar(`<a class="iconbtn" href="#/" aria-label="Back to events">${ICON.back}</a>`, `<div class="crumb">Events</div>`, `<button class="iconbtn" data-action="event-menu" data-id="${ev.id}" aria-label="Event options">${ICON.more}</button>`) +
+    `<main class="wrap">${head}${tabs('event', [['recordings', 'Recordings'], ['insights', 'Event insights']], ui.eventTab)}${body}</main>`;
+  setDock(true, 'Record into this event');
+  ui.dockEvent = ev.id;
+}
+
+/* ---------- Recording ---------- */
+let audioURL = null;
+async function renderRec(id, seq) {
+  const r = await DB.get('recordings', id);
+  if (seq !== renderSeq) return;
+  if (!r) { location.hash = '#/'; return; }
+  const ev = await DB.get('events', r.eventId);
+  if (seq !== renderSeq) return;
+  if (ui.recId !== id) { ui.recId = id; ui.recTab = 'summary'; ui.editing = false; }
+  const a = r.analysis, s = settings();
+  const working = busy.has(id) || ['transcribing', 'analyzing'].includes(r.status);
+  const canApi = !!s.openaiKey;
+  const actions = `<div class="btns">
+    <button class="btn primary" data-action="analyze-rec" data-id="${id}" ${working || !str(r.transcript) ? 'disabled' : ''}>${ICON.spark}${a ? 'Re-analyze' : 'Analyze'}</button>
+    <button class="btn" data-action="transcribe-rec" data-id="${id}" ${working || !canApi ? 'disabled' : ''} title="${canApi ? '' : 'Needs an OpenAI-compatible key in Settings'}">Transcribe with API</button>
+    <button class="btn" data-action="export-rec" data-id="${id}">${ICON.share}Share</button></div>`;
+  let body = '';
+  const tab = ui.recTab;
+  if (tab === 'summary') {
+    body = !a ? `<div class="panel"><p>${str(r.transcript) ? 'This recording has a transcript but no analysis yet.' : 'There is no transcript yet.'}</p>${actions}</div>`
+      : `<h2 class="sec">Summary</h2><div class="panel"><p>${esc(a.summary)}</p><p class="small muted">${esc(a.engine === 'basic' ? 'Basic offline analysis' : 'Analyzed with ' + a.engine)}</p>${actions}</div>
+         ${listPanel('Key points', a.bullets)}${listPanel('Decisions', a.decisions)}${listPanel('Open questions', a.openQuestions)}${listPanel('Notable facts and figures', a.highlights)}
+         ${chipsPanel('Topics', a.keyTopics)}${chipsPanel('People', a.people)}`;
+  } else if (tab === 'transcript') {
+    const src = { live: 'built-in speech recognition', api: 'transcription API', manual: 'typed by you' }[r.transcriptSource] || '';
+    if (ui.editing) {
+      body = `<h2 class="sec">Edit transcript</h2><textarea class="tx" id="tx-edit">${esc(r.transcript || '')}</textarea>
+        <div class="btns"><button class="btn primary" data-action="save-tx" data-id="${id}">Save transcript</button><button class="btn" data-action="cancel-tx">Cancel</button></div>`;
+    } else {
+      const segs = arr(r.segments);
+      const content = segs.length ? segs.map(g => `<div class="seg"><button data-action="seek" data-t="${g.t}">${fmtDur(g.t)}</button><div>${esc(g.text)}</div></div>`).join('')
+        : str(r.transcript) ? `<p style="white-space:pre-wrap">${esc(r.transcript)}</p>` : `<p class="muted">No transcript yet.</p>`;
+      body = `<h2 class="sec">Transcript</h2><div class="panel">${content}${src ? `<p class="small muted" style="margin-top:10px">From ${src}${r.language ? ', ' + esc(r.language) : ''}</p>` : ''}
+        <div class="btns"><button class="btn" data-action="edit-tx">Edit</button><button class="btn" data-action="copy-tx" data-id="${id}">Copy</button><button class="btn" data-action="transcribe-rec" data-id="${id}" ${working || !canApi ? 'disabled' : ''}>Transcribe with API</button></div></div>`;
+    }
+  } else if (tab === 'tasks') {
+    window.__recRem = a?.reminders || [];
+    body = !a ? `<div class="panel muted">Analyze this recording to extract to-dos and reminders.</div>` :
+      `<h2 class="sec">To-dos</h2>${a.todos.length ? `<div class="panel">${a.todos.map((t, i) => todoHTML(t, `data-action="todo" data-rec="${id}" data-i="${i}"`, false)).join('')}</div>` : '<div class="panel muted">No to-dos found.</div>'}
+       <h2 class="sec">Reminders</h2>${a.reminders.length ? `<div class="panel">${a.reminders.map((x, i) => remHTML(x, i, false, 'rec')).join('')}</div>` : '<div class="panel muted">No reminders found.</div>'}`;
+  } else {
+    body = !a ? `<div class="panel muted">Analyze this recording to see its sentiment.</div>` : `<h2 class="sec">Sentiment</h2>${sentimentPanel(a.sentiment)}`;
+  }
+  const openTodos = a ? a.todos.filter(t => !t.done).length : 0;
+  app.innerHTML = topbar(`<a class="iconbtn" href="#/event/${r.eventId}" aria-label="Back to event">${ICON.back}</a>`, `<div class="crumb">${esc(ev?.title || 'Event')}</div>`, `<button class="iconbtn" data-action="rec-menu" data-id="${id}" aria-label="Recording options">${ICON.more}</button>`) +
+    `<main class="wrap"><h1 class="page">${esc(r.title)}</h1>
+     <div class="meta"><span>${fmtDate(r.createdAt)}</span><span class="num">${fmtDur(r.duration)}</span>${statusPill(r)}</div>
+     ${r.error ? `<div class="errbox">${esc(r.error)}</div>` : ''}
+     <audio id="player" controls preload="metadata"></audio>
+     ${tabs('rec', [['summary', 'Summary'], ['transcript', 'Transcript'], ['tasks', 'Tasks', openTodos || ''], ['mood', 'Mood']], tab)}${body}</main>`;
+  setDock(false);
+  const aud = await DB.get('audio', id);
+  if (aud && $('#player')) {
+    if (audioURL?.id !== id) { if (audioURL) URL.revokeObjectURL(audioURL.url); audioURL = { id, url: URL.createObjectURL(new Blob([aud.buf], { type: aud.type })) }; }
+    $('#player').src = audioURL.url;
+  } else if ($('#player')) $('#player').classList.add('hidden');
+}
+
+/* ============================================================
+   Recorder
+   ============================================================ */
+const Rec = { state: 'idle' };
+function pickMime() {
+  if (!window.MediaRecorder) return '';
+  for (const m of ['audio/mp4;codecs=mp4a.40.2', 'audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus']) {
+    try { if (MediaRecorder.isTypeSupported(m)) return m; } catch {}
+  }
+  return '';
+}
+async function openRecorder(eventId) {
+  if (Rec.state !== 'idle') return;
+  const events = (await DB.all('events')).sort((a, b) => (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt));
+  const s = settings();
+  const now = new Date();
+  const defNew = `${now.toLocaleDateString(undefined, { weekday: 'long' })} ${now.getHours() < 12 ? 'morning' : now.getHours() < 17 ? 'afternoon' : 'evening'}`;
+  const opts = events.map(e => `<option value="${e.id}" ${e.id === eventId ? 'selected' : ''}>${esc(e.title)}</option>`).join('');
+  const ov = $('#overlay');
+  ov.innerHTML = `<div class="wrap recorder">
+    <div class="sheet-head"><button class="iconbtn" data-action="rec-cancel" aria-label="Close recorder">${ICON.close}</button><div class="grow">New recording</div></div>
+    <label class="field"><span>Save to event</span><select id="rec-event"><option value="__new" ${eventId ? '' : 'selected'}>New event…</option>${opts}</select></label>
+    <label class="field ${eventId ? 'hidden' : ''}" id="rec-newwrap"><span>New event name</span><input type="text" id="rec-newname" value="${esc(defNew)}" maxlength="80"></label>
+    <div class="stage">
+      <div class="timer" id="rec-timer">0:00</div>
+      <div class="rec-state" id="rec-state">Ready to record</div>
+      <div class="ring"><canvas id="rec-canvas" width="520" height="520"></canvas><button class="core" id="rec-core" data-action="rec-toggle" aria-label="Start recording"><span class="ci"></span></button></div>
+    </div>
+    <div class="live-tx ${s.liveCaptions && SR ? '' : 'hidden'}" id="rec-live" aria-live="polite"><span class="muted">Live captions appear here.</span></div>
+    ${!SR && s.transcriber === 'live' ? `<div class="banner">This browser has no built-in speech recognition. Audio is still saved; add an API key in Settings to transcribe it.</div>` : ''}
+    <div class="rec-controls"><button class="btn hidden" id="rec-pause" data-action="rec-pause">Pause</button><button class="btn primary hidden" id="rec-stop" data-action="rec-stop">Stop and save</button></div>
+    <p class="small muted" style="text-align:center;margin:0 0 16px">Keep Earshot open and the screen on while recording. iPhone stops the microphone when the app is in the background.</p>
+  </div>`;
+  ov.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  $('#rec-event').addEventListener('change', e => $('#rec-newwrap').classList.toggle('hidden', e.target.value !== '__new'));
+  if (!events.length) $('#rec-event').disabled = true;
+  drawRing(null);
+}
+function closeOverlay() { const ov = $('#overlay'); ov.classList.add('hidden'); ov.innerHTML = ''; document.body.style.overflow = ''; }
+
+async function startRecording() {
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) { toast('Recording is not supported in this browser.'); return; }
+  const s = settings();
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+  } catch (e) {
+    $('#rec-state').textContent = e.name === 'NotAllowedError' ? 'Microphone access was denied. Allow it in Settings › Safari › Microphone (or for this website), then try again.' : 'Could not start the microphone: ' + e.message;
+    return;
+  }
+  const mime = pickMime();
+  let mr;
+  try { mr = new MediaRecorder(stream, { ...(mime ? { mimeType: mime } : {}), audioBitsPerSecond: 48000 }); }
+  catch { mr = new MediaRecorder(stream); }
+  Object.assign(Rec, { state: 'recording', stream, mr, chunks: [], mime: mr.mimeType || mime || 'audio/mp4', startedAt: Date.now(), elapsed: 0, segStart: Date.now(), segments: [], interim: '', discard: false, srOn: false, srFailed: false });
+  mr.ondataavailable = e => { if (e.data && e.data.size) Rec.chunks.push(e.data); };
+  mr.onstop = finalizeRecording;
+  mr.onerror = e => { console.error(e); toast('Recorder error: ' + (e.error?.message || 'unknown')); };
+  stream.getAudioTracks().forEach(t => t.addEventListener('ended', () => { if (Rec.state === 'recording' || Rec.state === 'paused') { toast('The microphone was interrupted. Saving what was recorded.'); stopRecording(); } }));
+  mr.start(1000);
+  // Level meter
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    Rec.ctx = new AC(); if (Rec.ctx.state === 'suspended') await Rec.ctx.resume();
+    const src = Rec.ctx.createMediaStreamSource(stream);
+    Rec.analyser = Rec.ctx.createAnalyser(); Rec.analyser.fftSize = 256; Rec.analyser.smoothingTimeConstant = 0.75;
+    src.connect(Rec.analyser);
+  } catch (e) { console.warn('No level meter', e); }
+  try { Rec.wake = await navigator.wakeLock?.request('screen'); } catch {}
+  try { await navigator.storage?.persist?.(); } catch {}
+  if (SR && (s.liveCaptions || s.transcriber === 'live')) startSR();
+  $('#rec-core').innerHTML = '<span class="sq"></span>'; $('#rec-core').setAttribute('aria-label', 'Stop and save');
+  $('#rec-pause').classList.remove('hidden'); $('#rec-stop').classList.remove('hidden');
+  $('#rec-event').disabled = true; const nn = $('#rec-newname'); if (nn) nn.disabled = true;
+  updateRecState();
+  Rec.tick = setInterval(updateTimer, 250);
+  loop();
+}
+function elapsed() { return Rec.elapsed + (Rec.state === 'recording' ? (Date.now() - Rec.segStart) / 1000 : 0); }
+function updateTimer() { const t = $('#rec-timer'); if (t) t.textContent = fmtDur(elapsed()); }
+function updateRecState() {
+  const el = $('#rec-state'); if (!el) return;
+  el.innerHTML = Rec.state === 'recording' ? `<span class="live"></span>Recording${Rec.srOn ? ' with live captions' : ''}` : Rec.state === 'paused' ? 'Paused' : 'Ready to record';
+}
+function loop() {
+  if (Rec.state === 'idle' || !$('#rec-canvas')) return;
+  drawRing(Rec.state === 'recording' ? Rec.analyser : null);
+  Rec.raf = requestAnimationFrame(loop);
+}
+function drawRing(analyser) {
+  const c = $('#rec-canvas'); if (!c) return;
+  const g = c.getContext('2d'), W = c.width, cx = W / 2, R = W * 0.25;
+  g.clearRect(0, 0, W, W);
+  const cs = getComputedStyle(document.documentElement);
+  const rec = cs.getPropertyValue('--rec').trim() || '#E0412F', line = cs.getPropertyValue('--line').trim() || '#ccc';
+  const N = 72;
+  let data = null;
+  if (analyser) { data = new Uint8Array(analyser.frequencyBinCount); analyser.getByteFrequencyData(data); }
+  g.lineCap = 'round'; g.lineWidth = 6;
+  for (let i = 0; i < N; i++) {
+    const ang = (i / N) * Math.PI * 2 - Math.PI / 2;
+    // Mirror the spectrum so the ring is symmetric
+    const bin = data ? data[Math.floor((i < N / 2 ? i : N - i) * (data.length * 0.6) / (N / 2))] / 255 : 0;
+    const len = 6 + bin * W * 0.2;
+    g.strokeStyle = data ? rec : line;
+    g.globalAlpha = data ? 0.35 + bin * 0.65 : 1;
+    g.beginPath();
+    g.moveTo(cx + Math.cos(ang) * R, cx + Math.sin(ang) * R);
+    g.lineTo(cx + Math.cos(ang) * (R + len), cx + Math.sin(ang) * (R + len));
+    g.stroke();
+  }
+  g.globalAlpha = 1;
+}
+function startSR() {
+  const s = settings();
+  try {
+    const sr = new SR();
+    sr.lang = s.language && s.language !== 'auto' ? s.language : (navigator.language || 'en-US');
+    sr.continuous = true; sr.interimResults = true;
+    sr.onresult = e => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const res = e.results[i], text = str(res[0]?.transcript);
+        if (!text) continue;
+        if (res.isFinal) Rec.segments.push({ t: Math.max(0, elapsed() - text.split(' ').length * 0.4), text });
+        else interim += text + ' ';
+      }
+      Rec.interim = interim; renderLive();
+    };
+    sr.onerror = e => {
+      if (['not-allowed', 'service-not-allowed', 'language-not-supported'].includes(e.error)) {
+        Rec.srFailed = true; Rec.srOn = false; updateRecState();
+        const el = $('#rec-live'); if (el) el.innerHTML = `<span class="muted">Live captions are unavailable here (${esc(e.error)}). Audio is still recording${settings().openaiKey ? ' and will be transcribed by the API' : ''}.</span>`;
+      }
+    };
+    sr.onend = () => {
+      Rec.srOn = false;
+      if (Rec.state === 'recording' && !Rec.srFailed) setTimeout(() => { if (Rec.state === 'recording' && !Rec.srOn) try { sr.start(); Rec.srOn = true; } catch {} }, 250);
+      updateRecState();
+    };
+    Rec.sr = sr; sr.start(); Rec.srOn = true;
+  } catch (e) { console.warn('Speech recognition failed to start', e); Rec.srFailed = true; }
+}
+function renderLive() {
+  const el = $('#rec-live'); if (!el) return;
+  const fin = Rec.segments.map(x => esc(x.text)).join(' ');
+  el.innerHTML = (fin || Rec.interim) ? `${fin} <span class="interim">${esc(Rec.interim)}</span>` : '<span class="muted">Listening…</span>';
+  el.scrollTop = el.scrollHeight;
+}
+function pauseRecording() {
+  if (Rec.state === 'recording') {
+    try { Rec.mr.pause(); } catch {}
+    Rec.elapsed = elapsed(); Rec.state = 'paused';
+    try { Rec.sr?.stop(); } catch {}
+    $('#rec-pause').textContent = 'Resume';
+  } else if (Rec.state === 'paused') {
+    try { Rec.mr.resume(); } catch {}
+    Rec.segStart = Date.now(); Rec.state = 'recording';
+    if (Rec.sr && !Rec.srFailed) try { Rec.sr.start(); Rec.srOn = true; } catch {}
+    $('#rec-pause').textContent = 'Pause';
+    loop();
+  }
+  updateRecState(); drawRing(null);
+}
+function stopRecording() {
+  if (Rec.state !== 'recording' && Rec.state !== 'paused') return;
+  Rec.elapsed = elapsed(); Rec.state = 'stopping';
+  const el = $('#rec-state'); if (el) el.textContent = 'Saving…';
+  try { Rec.sr?.stop(); } catch {}
+  try { if (Rec.mr.state !== 'inactive') Rec.mr.stop(); else finalizeRecording(); } catch { finalizeRecording(); }
+}
+async function finalizeRecording() {
+  if (Rec.finalizing) return; Rec.finalizing = true;
+  clearInterval(Rec.tick); cancelAnimationFrame(Rec.raf);
+  try { Rec.stream?.getTracks().forEach(t => t.stop()); } catch {}
+  try { Rec.ctx?.close(); } catch {}
+  try { Rec.wake?.release(); } catch {}
+  // Give speech recognition a moment to deliver its last final result
+  await new Promise(r => setTimeout(r, Rec.srOn ? 700 : 50));
+  const discard = Rec.discard;
+  const evSel = $('#rec-event')?.value, newName = str($('#rec-newname')?.value);
+  const data = { chunks: Rec.chunks, mime: Rec.mime, duration: Rec.elapsed, segments: Rec.segments.slice(), interim: str(Rec.interim), startedAt: Rec.startedAt };
+  for (const k of Object.keys(Rec)) delete Rec[k];
+  Rec.state = 'idle';
+  if (discard) { closeOverlay(); return; }
+  try {
+    if (!data.chunks.length) throw new Error('No audio was captured.');
+    const blob = new Blob(data.chunks, { type: data.mime.split(';')[0] });
+    const buf = await blob.arrayBuffer();
+    let eventId = evSel;
+    if (!eventId || eventId === '__new') {
+      const ev = { id: uid(), title: newName || 'Untitled event', description: '', createdAt: data.startedAt, updatedAt: Date.now() };
+      await DB.put('events', ev); eventId = ev.id;
+    }
+    const segs = data.segments; if (data.interim) segs.push({ t: data.duration, text: data.interim });
+    const s = settings();
+    const rec = {
+      id: uid(), eventId, title: 'Recording at ' + new Date(data.startedAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }),
+      createdAt: data.startedAt, updatedAt: Date.now(), duration: data.duration, mime: blob.type, size: blob.size,
+      transcript: segs.map(x => x.text).join(' '), segments: segs, transcriptSource: segs.length ? 'live' : '', language: s.language,
+      status: 'saved', analysis: null, error: '',
+    };
+    await DB.put('audio', { buf, type: blob.type }, rec.id);
+    await DB.put('recordings', rec);
+    await touchEvent(eventId);
+    closeOverlay();
+    location.hash = '#/rec/' + rec.id;
+    processRecording(rec.id, { transcribe: true, analyze: settings().autoAnalyze });
+  } catch (e) {
+    console.error(e); closeOverlay(); toast('Could not save the recording: ' + e.message, 5000);
+  }
+}
+window.addEventListener('beforeunload', e => { if (Rec.state === 'recording' || Rec.state === 'paused') { e.preventDefault(); e.returnValue = ''; } });
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible' && Rec.state === 'recording') {
+    try { Rec.wake = await navigator.wakeLock?.request('screen'); } catch {}
+    if (Rec.mr && Rec.mr.state === 'inactive') stopRecording();
+  }
+});
+
+/* ============================================================
+   Import audio
+   ============================================================ */
+let uploadEvent = '';
+async function importAudio(file) {
+  try {
+    const buf = await file.arrayBuffer();
+    const type = file.type || 'audio/mp4';
+    const duration = await new Promise(res => {
+      const a = new Audio(); const url = URL.createObjectURL(new Blob([buf], { type }));
+      a.preload = 'metadata'; a.onloadedmetadata = () => { res(isFinite(a.duration) ? a.duration : 0); URL.revokeObjectURL(url); };
+      a.onerror = () => { res(0); URL.revokeObjectURL(url); }; a.src = url; setTimeout(() => res(0), 4000);
+    });
+    let eventId = uploadEvent;
+    if (!eventId) { const ev = { id: uid(), title: file.name.replace(/\.[^.]+$/, '') || 'Imported audio', description: '', createdAt: file.lastModified || Date.now(), updatedAt: Date.now() }; await DB.put('events', ev); eventId = ev.id; }
+    const rec = { id: uid(), eventId, title: file.name.replace(/\.[^.]+$/, '') || 'Imported audio', createdAt: file.lastModified || Date.now(), updatedAt: Date.now(), duration, mime: type, size: file.size, transcript: '', segments: [], transcriptSource: '', language: settings().language, status: 'saved', analysis: null, error: '', needsApi: true };
+    await DB.put('audio', { buf, type }, rec.id);
+    await DB.put('recordings', rec);
+    await touchEvent(eventId);
+    location.hash = '#/rec/' + rec.id;
+    processRecording(rec.id, { transcribe: true, analyze: settings().autoAnalyze });
+  } catch (e) { toast('Could not import: ' + e.message, 4000); }
+}
+
+/* ============================================================
+   Export, calendar, backup
+   ============================================================ */
+async function shareOrDownload(filename, content, mime, preferDownload = false) {
+  const blob = content instanceof Blob ? content : new Blob([content], { type: mime });
+  if (!preferDownload) {
+    try {
+      const file = new File([blob], filename, { type: mime });
+      if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: filename }); return; }
+    } catch (e) { if (e.name === 'AbortError') return; }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+function safeName(s) { return str(s).replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').slice(0, 60) || 'earshot'; }
+function mdList(title, items, fn = x => x) { items = arr(items); return items.length ? `\n## ${title}\n${items.map(i => '- ' + fn(i)).join('\n')}\n` : ''; }
+function recMarkdown(r, ev) {
+  const a = r.analysis;
+  let md = `# ${r.title}\n\n${ev?.title ? `Event: ${ev.title}  \n` : ''}Recorded: ${fmtDate(r.createdAt)}  \nDuration: ${fmtDur(r.duration)}\n`;
+  if (a) {
+    md += `\n## Summary\n${a.summary}\n` + mdList('Key points', a.bullets) +
+      mdList('To-dos', a.todos, t => `[${t.done ? 'x' : ' '}] ${t.task}${t.owner ? ` (${t.owner})` : ''}${t.due ? `, due ${t.due}` : ''}`) +
+      mdList('Reminders', a.reminders, x => `${x.text}${x.when ? ` (${x.when})` : ''}`) + mdList('Decisions', a.decisions) + mdList('Open questions', a.openQuestions) +
+      mdList('Notable facts', a.highlights) + (a.keyTopics.length ? `\nTopics: ${a.keyTopics.join(', ')}\n` : '') +
+      `\n## Sentiment\n${a.sentiment.label} (${fmtScore(a.sentiment.score)}). ${a.sentiment.explanation}\n` +
+      (a.sentiment.emotions.length ? `Emotions: ${a.sentiment.emotions.map(e => `${e.name} ${Math.round(e.intensity * 100)}%`).join(', ')}\n` : '');
+  }
+  md += `\n## Transcript\n${str(r.transcript) || '(none)'}\n`;
+  return md;
+}
+async function eventMarkdown(ev) {
+  const recs = (await DB.byEvent(ev.id)).sort((a, b) => a.createdAt - b.createdAt);
+  const a = ev.analysis;
+  let md = `# ${ev.title}\n\n${ev.description ? ev.description + '\n\n' : ''}${recs.length} recordings, ${fmtDur(recs.reduce((x, r) => x + (r.duration || 0), 0))}\n`;
+  if (a) md += `\n## Event summary\n${a.summary}\n` + mdList('Highlights', a.highlights) + mdList('To-dos', a.todos, t => `[${t.done ? 'x' : ' '}] ${t.task}${t.owner ? ` (${t.owner})` : ''}`) +
+    mdList('Reminders', a.reminders, x => `${x.text}${x.when ? ` (${x.when})` : ''}`) + mdList('Decisions', a.decisions) + mdList('Open questions', a.openQuestions) + mdList('Next steps', a.nextSteps) +
+    `\n## Event sentiment\n${a.sentiment.label} (${fmtScore(a.sentiment.score)}), ${a.sentiment.trend || ''}. ${a.sentiment.explanation}\n`;
+  md += recs.map(r => '\n---\n\n' + recMarkdown(r, null).replace(/^# /, '## ').replace(/\n## /g, '\n### ')).join('');
+  return md;
+}
+function icsEscape(s) { return str(s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n'); }
+function icsUTC(d) { return d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, ''); }
+function makeICS(x) {
+  let p = parseLocal(x.when);
+  if (!p) { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); p = { date: d, hasTime: true }; }
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Earshot//EN', 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT', `UID:${uid()}@earshot`, `DTSTAMP:${icsUTC(new Date())}`];
+  if (p.hasTime) { lines.push(`DTSTART:${icsUTC(p.date)}`, `DTEND:${icsUTC(new Date(p.date.getTime() + 30 * 60000))}`); }
+  else { const n = new Date(p.date); n.setDate(n.getDate() + 1); lines.push(`DTSTART;VALUE=DATE:${localISO(p.date).replace(/-/g, '')}`, `DTEND;VALUE=DATE:${localISO(n).replace(/-/g, '')}`); }
+  lines.push(`SUMMARY:${icsEscape(trimWords(x.text, 12))}`, `DESCRIPTION:${icsEscape(x.text + (x.source || x.src ? '\n\nFrom: ' + (x.source || x.src) : '') + '\n(Created by Earshot)')}`,
+    'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:Reminder', `TRIGGER:${p.hasTime ? '-PT15M' : 'PT9H'}`, 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR');
+  return lines.join('\r\n');
+}
+function b64(buf) { let s = ''; const b = new Uint8Array(buf); for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); }
+function unb64(s) { const bin = atob(s); const b = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i); return b.buffer; }
+async function exportBackup(withAudio) {
+  const [events, recordings] = await Promise.all([DB.all('events'), DB.all('recordings')]);
+  const out = { app: 'earshot', version: 1, exportedAt: new Date().toISOString(), events, recordings, audio: {} };
+  if (withAudio) for (const r of recordings) { const a = await DB.get('audio', r.id); if (a) out.audio[r.id] = { type: a.type, data: b64(a.buf) }; }
+  await shareOrDownload(`earshot-backup-${localISO(new Date())}.json`, JSON.stringify(out), 'application/json');
+}
+async function importBackup(file) {
+  try {
+    const j = JSON.parse(await file.text());
+    if (j.app !== 'earshot') throw new Error('This is not an Earshot backup.');
+    for (const e of arr(j.events)) await DB.put('events', e);
+    for (const r of arr(j.recordings)) await DB.put('recordings', r);
+    for (const [id, a] of Object.entries(j.audio || {})) await DB.put('audio', { buf: unb64(a.data), type: a.type }, id);
+    toast(`Imported ${arr(j.events).length} events and ${arr(j.recordings).length} recordings.`);
+    closeOverlay(); route();
+  } catch (e) { toast('Import failed: ' + e.message, 4000); }
+}
+
+/* ============================================================
+   Settings
+   ============================================================ */
+async function openSettings() {
+  const s = settings();
+  let usage = '';
+  try { const est = await navigator.storage?.estimate?.(); if (est) usage = `Using ${(est.usage / 1048576).toFixed(1)} MB of storage on this device.`; } catch {}
+  const ov = $('#overlay');
+  ov.innerHTML = `<div class="wrap">
+    <div class="sheet-head"><button class="iconbtn" data-action="close-overlay" aria-label="Close settings">${ICON.close}</button><div class="grow">Settings</div><button class="btn primary" data-action="save-settings">Save</button></div>
+    <fieldset><legend>Transcription</legend>
+      <label class="field"><span>Transcribe with</span><select id="st-transcriber">
+        <option value="live" ${s.transcriber === 'live' ? 'selected' : ''}>Built-in speech recognition (free, while recording)</option>
+        <option value="api" ${s.transcriber === 'api' ? 'selected' : ''}>Transcription API after recording (more accurate)</option></select>
+        <small>${SR ? 'Built-in recognition is available in this browser.' : 'This browser has no built-in speech recognition, so use the API option.'} The API option sends the audio to the OpenAI-compatible service below.</small></label>
+      <label class="check"><input type="checkbox" id="st-captions" ${s.liveCaptions ? 'checked' : ''}><span>Show live captions while recording</span></label>
+      <label class="field"><span>Language</span><input type="text" id="st-language" value="${esc(s.language)}" placeholder="en-IN, hi-IN, en-US…"><small>A language tag such as en-IN or hi-IN. Type auto to let the API detect it.</small></label>
+    </fieldset>
+    <fieldset><legend>Summaries and analysis</legend>
+      <label class="field"><span>Analyze with</span><select id="st-provider">
+        <option value="local" ${s.aiProvider === 'local' ? 'selected' : ''}>Basic, on this device (offline, no key)</option>
+        <option value="anthropic" ${s.aiProvider === 'anthropic' ? 'selected' : ''}>Claude (Anthropic API key)</option>
+        <option value="openai" ${s.aiProvider === 'openai' ? 'selected' : ''}>OpenAI-compatible API</option></select></label>
+      <label class="check"><input type="checkbox" id="st-auto" ${s.autoAnalyze ? 'checked' : ''}><span>Analyze each recording automatically when it's saved</span></label>
+      <label class="field"><span>Write analysis in</span><input type="text" id="st-outlang" value="${esc(s.outLang)}" placeholder="Same as the transcript"><small>Leave blank to match the transcript, or type a language such as English.</small></label>
+    </fieldset>
+    <fieldset><legend>Claude</legend>
+      <label class="field"><span>Anthropic API key</span><input type="password" id="st-akey" value="${esc(s.anthropicKey)}" autocomplete="off" placeholder="sk-ant-…"></label>
+      <label class="field"><span>Model</span><input type="text" id="st-amodel" value="${esc(s.anthropicModel)}" list="dl-amodel"><datalist id="dl-amodel"><option value="claude-sonnet-5-5"><option value="claude-haiku-5-5"><option value="claude-opus-5-5"></datalist><small>Haiku is cheapest, Sonnet is a good balance, Opus is the most thorough.</small></label>
+    </fieldset>
+    <fieldset><legend>OpenAI-compatible API</legend>
+      <label class="field"><span>API key</span><input type="password" id="st-okey" value="${esc(s.openaiKey)}" autocomplete="off" placeholder="sk-…"></label>
+      <label class="field"><span>Base URL</span><input type="url" id="st-obase" value="${esc(s.openaiBase)}"><small>OpenAI: https://api.openai.com/v1. Groq: https://api.groq.com/openai/v1 (fast Whisper).</small></label>
+      <label class="field"><span>Transcription model</span><input type="text" id="st-tmodel" value="${esc(s.transcribeModel)}" list="dl-tmodel"><datalist id="dl-tmodel"><option value="whisper-1"><option value="gpt-4o-transcribe"><option value="gpt-4o-mini-transcribe"><option value="whisper-large-v3-turbo"></datalist><small>Whisper models also return timestamps.</small></label>
+      <label class="field"><span>Chat model (used when "Analyze with" is OpenAI-compatible)</span><input type="text" id="st-cmodel" value="${esc(s.chatModel)}"></label>
+    </fieldset>
+    <p class="small muted">Keys are stored only in this browser on this device and are sent only to the service they belong to. Recordings and transcripts stay on this device unless you choose an API above.</p>
+    <fieldset><legend>Your data</legend>
+      <p class="small muted">${esc(usage)}</p>
+      <div class="btns" style="margin-bottom:10px"><button class="btn" data-action="backup" data-audio="0">Back up text</button><button class="btn" data-action="backup" data-audio="1">Back up with audio</button><button class="btn" data-action="restore">Restore backup</button><button class="btn danger" data-action="wipe">Erase everything</button></div>
+    </fieldset>
+    <div style="height:24px"></div></div>`;
+  ov.classList.remove('hidden'); document.body.style.overflow = 'hidden';
+}
+function readSettingsForm() {
+  const v = id => $('#' + id)?.value ?? '';
+  const s = settings();
+  Object.assign(s, {
+    transcriber: v('st-transcriber'), liveCaptions: $('#st-captions').checked, language: str(v('st-language')) || DEFAULTS.language,
+    aiProvider: v('st-provider'), autoAnalyze: $('#st-auto').checked, outLang: str(v('st-outlang')),
+    anthropicKey: str(v('st-akey')), anthropicModel: str(v('st-amodel')) || DEFAULTS.anthropicModel,
+    openaiKey: str(v('st-okey')), openaiBase: str(v('st-obase')) || DEFAULTS.openaiBase, transcribeModel: str(v('st-tmodel')) || DEFAULTS.transcribeModel, chatModel: str(v('st-cmodel')) || DEFAULTS.chatModel,
+  });
+  return s;
+}
+
+/* ============================================================
+   Actions
+   ============================================================ */
+const actions = {
+  'tab': el => { ui[el.dataset.group + 'Tab'] = el.dataset.tab; if (el.dataset.group === 'rec') ui.editing = false; route(); },
+  'settings': () => openSettings(),
+  'close-overlay': () => closeOverlay(),
+  'save-settings': () => {
+    const s = readSettingsForm();
+    if (s.aiProvider === 'anthropic' && !s.anthropicKey) return toast('Add an Anthropic API key, or choose another option.');
+    if (s.aiProvider === 'openai' && !s.openaiKey) return toast('Add an API key for the OpenAI-compatible service.');
+    if (s.transcriber === 'api' && !s.openaiKey) toast('Saved. Transcription API needs a key; live captions will be used until you add one.', 4000);
+    else toast('Settings saved');
+    saveSettings(s); closeOverlay(); route();
+  },
+  'open-recorder': () => openRecorder(ui.dockEvent || ''),
+  'rec-toggle': () => { if (Rec.state === 'idle') startRecording(); else stopRecording(); },
+  'rec-pause': () => pauseRecording(),
+  'rec-stop': () => stopRecording(),
+  'rec-cancel': () => {
+    if (Rec.state === 'recording' || Rec.state === 'paused') {
+      if (!confirm('Discard this recording?')) return;
+      Rec.discard = true; stopRecording();
+    } else if (Rec.state === 'idle') closeOverlay();
+  },
+  'new-event': async () => {
+    const title = prompt('Event name', '');
+    if (title == null) return;
+    const ev = { id: uid(), title: str(title) || 'Untitled event', description: '', createdAt: Date.now(), updatedAt: Date.now() };
+    await DB.put('events', ev); ui.eventTab = 'recordings'; location.hash = '#/event/' + ev.id;
+  },
+  'upload': el => { uploadEvent = el.dataset.event || ''; $('#file-audio').value = ''; $('#file-audio').click(); },
+  'event-menu': async el => {
+    const ev = await DB.get('events', el.dataset.id); if (!ev) return;
+    const choice = prompt('Type a number:\n1  Rename\n2  Edit notes\n3  Share as Markdown\n4  Delete event', '');
+    if (choice === '1') { const t = prompt('Event name', ev.title); if (t != null && str(t)) { ev.title = str(t); ev.updatedAt = Date.now(); await DB.put('events', ev); route(); } }
+    else if (choice === '2') { const d = prompt('Notes (context that helps the analysis, e.g. who attended)', ev.description || ''); if (d != null) { ev.description = str(d); await DB.put('events', ev); route(); } }
+    else if (choice === '3') { await shareOrDownload(safeName(ev.title) + '.md', await eventMarkdown(ev), 'text/markdown'); }
+    else if (choice === '4') {
+      const recs = await DB.byEvent(ev.id);
+      if (!confirm(`Delete "${ev.title}" and its ${recs.length} recording${recs.length === 1 ? '' : 's'}? This can't be undone.`)) return;
+      for (const r of recs) { await DB.del('recordings', r.id); await DB.del('audio', r.id); }
+      await DB.del('events', ev.id); toast('Event deleted'); location.hash = '#/';
+    }
+  },
+  'rec-menu': async el => {
+    const r = await DB.get('recordings', el.dataset.id); if (!r) return;
+    const events = (await DB.all('events')).filter(e => e.id !== r.eventId);
+    const choice = prompt('Type a number:\n1  Rename\n2  Move to another event\n3  Download audio\n4  Delete recording', '');
+    if (choice === '1') { const t = prompt('Recording name', r.title); if (t != null && str(t)) { await patchRec(r.id, { title: str(t), titleEdited: true }); route(); } }
+    else if (choice === '2') {
+      if (!events.length) return toast('There is no other event to move to.');
+      const pick = prompt('Move to which event? Type a number:\n' + events.map((e, i) => `${i + 1}  ${e.title}`).join('\n'), '');
+      const target = events[(+pick || 0) - 1];
+      if (target) { const from = r.eventId; await patchRec(r.id, { eventId: target.id }); await touchEvent(target.id); await touchEvent(from); toast('Moved to ' + target.title); route(); }
+    }
+    else if (choice === '3') { const a = await DB.get('audio', r.id); if (a) { const ext = /mp4|m4a|aac/.test(a.type) ? 'm4a' : /webm/.test(a.type) ? 'webm' : /ogg/.test(a.type) ? 'ogg' : /wav/.test(a.type) ? 'wav' : 'mp3'; await shareOrDownload(safeName(r.title) + '.' + ext, new Blob([a.buf], { type: a.type }), a.type); } }
+    else if (choice === '4') {
+      if (!confirm(`Delete "${r.title}"? The audio, transcript and analysis will be removed. This can't be undone.`)) return;
+      await DB.del('recordings', r.id); await DB.del('audio', r.id); await touchEvent(r.eventId); toast('Recording deleted'); location.hash = '#/event/' + r.eventId;
+    }
+  },
+  'analyze-rec': el => processRecording(el.dataset.id, { transcribe: false, analyze: true }),
+  'transcribe-rec': async el => { await patchRec(el.dataset.id, { needsApi: true }); processRecording(el.dataset.id, { transcribe: true, analyze: settings().autoAnalyze }); },
+  'analyze-event': async el => {
+    const id = el.dataset.id; if (busy.has(id)) return;
+    busy.add(id); route();
+    try {
+      const [ev, recs] = await Promise.all([DB.get('events', id), DB.byEvent(id)]);
+      const res = await analyzeEvent(ev, recs);
+      const fresh = await DB.get('events', id); fresh.analysis = res; fresh.updatedAt = Date.now(); await DB.put('events', fresh);
+      toast('Event analyzed');
+    } catch (e) { toast('Event analysis failed: ' + e.message, 6000); }
+    finally { busy.delete(id); route(); }
+  },
+  'todo': async el => {
+    const r = await DB.get('recordings', el.dataset.rec); const t = r?.analysis?.todos?.[+el.dataset.i]; if (!t) return;
+    t.done = el.checked; await DB.put('recordings', r);
+    el.closest('.task')?.classList.toggle('done', t.done);
+    if (location.hash === '' || location.hash === '#/' ) setTimeout(route, 350);
+  },
+  'etodo': async el => {
+    const ev = await DB.get('events', el.dataset.ev); const t = ev?.analysis?.todos?.[+el.dataset.i]; if (!t) return;
+    t.done = el.checked; await DB.put('events', ev); el.closest('.task')?.classList.toggle('done', t.done);
+  },
+  'ics': el => {
+    const src = { cache: window.__remCache, event: window.__evRem, rec: window.__recRem }[el.dataset.scope] || [];
+    const x = src[+el.dataset.idx]; if (!x) return;
+    shareOrDownload(safeName(trimWords(x.text, 6)) + '.ics', makeICS(x), 'text/calendar', true);
+  },
+  'seek': el => { const p = $('#player'); if (p) { p.currentTime = +el.dataset.t || 0; p.play().catch(() => {}); } },
+  'edit-tx': () => { ui.editing = true; route(); },
+  'cancel-tx': () => { ui.editing = false; route(); },
+  'save-tx': async el => {
+    const text = $('#tx-edit').value;
+    const r = await DB.get('recordings', el.dataset.id);
+    const changed = str(text) !== str(r.transcript);
+    ui.editing = false;
+    if (changed) {
+      await patchRec(r.id, { transcript: text, segments: [], transcriptSource: 'manual', error: '' });
+      if (confirm('Transcript saved. Re-analyze with the new text?')) processRecording(r.id, { transcribe: false, analyze: true });
+    }
+    route();
+  },
+  'copy-tx': async el => { const r = await DB.get('recordings', el.dataset.id); try { await navigator.clipboard.writeText(r.transcript || ''); toast('Transcript copied'); } catch { toast('Copy is not available here'); } },
+  'export-rec': async el => { const r = await DB.get('recordings', el.dataset.id); const ev = await DB.get('events', r.eventId); await shareOrDownload(safeName(r.title) + '.md', recMarkdown(r, ev), 'text/markdown'); },
+  'backup': el => exportBackup(el.dataset.audio === '1'),
+  'restore': () => { $('#file-backup').value = ''; $('#file-backup').click(); },
+  'wipe': async () => {
+    if (!confirm('Erase all events, recordings, transcripts and settings on this device? This cannot be undone.')) return;
+    await DB.clear('events'); await DB.clear('recordings'); await DB.clear('audio');
+    try { localStorage.removeItem('earshot.settings'); } catch {}
+    closeOverlay(); location.hash = '#/'; route(); toast('Everything was erased');
+  },
+};
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-action]'); if (!el) return;
+  const fn = actions[el.dataset.action]; if (!fn) return;
+  if (el.type === 'checkbox') { fn(el, e); return; }
+  e.preventDefault(); fn(el, e);
+});
+$('#file-audio').addEventListener('change', e => { const f = e.target.files?.[0]; if (f) importAudio(f); });
+$('#file-backup').addEventListener('change', e => { const f = e.target.files?.[0]; if (f) importBackup(f); });
+window.addEventListener('hashchange', () => { ui.editing = false; route().then(() => window.scrollTo(0, 0)); });
+
+// Recover recordings left mid-processing (e.g. the app was closed while analyzing)
+(async () => {
+  try {
+    const recs = await DB.all('recordings');
+    for (const r of recs) if (['transcribing', 'analyzing', 'recording'].includes(r.status)) await patchRec(r.id, { status: r.analysis ? 'done' : 'saved', error: 'Processing was interrupted. Tap Analyze or Transcribe to try again.' });
+  } catch {}
+  route();
+})();
+
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(e => console.warn('Service worker not registered', e)));
+}
+window.__earshot = { DB, localAnalyze, processRecording, settings, saveSettings, route, analyzeEvent, makeICS, parseWhen };
+</script>
+</body>
+</html>
